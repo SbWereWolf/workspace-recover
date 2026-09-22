@@ -1,0 +1,58 @@
+{
+  "schema": "workspace-recover/template/v1",
+  "name": "local-project",
+  "inputs": {
+    "projectName": {
+      "required": true,
+      "example": "demo-project",
+      "type": "string"
+    },
+    "sourcePath": {
+      "required": true,
+      "example": "/work/demo-project",
+      "type": "string"
+    },
+    "backupRoot": {
+      "required": true,
+      "example": "/var/backups/demo-project",
+      "type": "string"
+    },
+    "partSizeBytes": {
+      "default": 67108864,
+      "example": 67108864,
+      "type": "integer"
+    }
+  },
+  "manifest": {
+    "schema": "workspace-recover/manifest/v1",
+    "name": "${projectName}",
+    "backup": {
+      "source": {
+        "path": "${sourcePath}",
+        "exclude": []
+      },
+      "transport": {
+        "partSizeBytes": "${partSizeBytes}"
+      },
+      "provider": {
+        "type": "local-files",
+        "root": "${backupRoot}"
+      }
+    },
+    "restore": {
+      "target": {
+        "required": true
+      },
+      "existingTarget": "reject",
+      "workflow": []
+    },
+    "handoff": {
+      "provider": {
+        "type": "local-files",
+        "root": "${backupRoot}",
+        "handoffRoot": "${backupRoot}/handoffs"
+      },
+      "subject": "workspace-recover ${projectName} backup"
+    }
+  }
+}

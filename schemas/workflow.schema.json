@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/workflow/v1",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "type",
+      "argv"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+      },
+      "type": {
+        "enum": [
+          "command",
+          "verification"
+        ]
+      },
+      "argv": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      },
+      "when": {
+        "enum": [
+          "success",
+          "always"
+        ]
+      },
+      "cwd": {
+        "type": "string"
+      },
+      "env": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "report": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": true
+  },
+  "$comment": "Step ID uniqueness and NUL-free argv are also checked by validateWorkflow. JSON Schema files document the envelope; runtime validation is implemented in code, not an external schema engine."
+}

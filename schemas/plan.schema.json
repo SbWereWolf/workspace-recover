@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/plan/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "operation",
+    "createdAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/plan/v1"
+    },
+    "operation": {
+      "enum": [
+        "backup",
+        "restore"
+      ]
+    },
+    "createdAt": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/manifest/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "backup",
+    "restore",
+    "handoff"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/manifest/v1"
+    },
+    "backup": {
+      "type": "object",
+      "required": [
+        "source",
+        "provider"
+      ]
+    },
+    "restore": {
+      "type": "object",
+      "properties": {
+        "workflow": {
+          "$ref": "workflow.schema.json"
+        },
+        "target": {
+          "type": "object"
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "required": [
+        "provider"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

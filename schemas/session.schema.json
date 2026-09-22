@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/session/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "operation",
+    "state",
+    "createdAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/session/v1"
+    },
+    "operation": {
+      "enum": [
+        "backup",
+        "restore"
+      ]
+    },
+    "state": {
+      "enum": [
+        "running",
+        "waiting_for_input",
+        "waiting_for_auth",
+        "completed",
+        "completed_with_warnings",
+        "failed",
+        "aborted"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/rehearsal-receipt/v1",
+  "type": "object",
+  "required": [
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/rehearsal-receipt/v1"
+    }
+  },
+  "additionalProperties": true
+}

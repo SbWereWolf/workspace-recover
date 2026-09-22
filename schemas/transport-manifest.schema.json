@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/transport-manifest/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "archive",
+    "provider",
+    "parts"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/transport-manifest/v1"
+    },
+    "archive": {
+      "type": "object",
+      "required": [
+        "bytes",
+        "sha256",
+        "format"
+      ]
+    },
+    "provider": {
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
+    "parts": {
+      "type": "array",
+      "minItems": 1
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,69 @@
+{
+  "schema": "workspace-recover/template/v1",
+  "name": "google-workspace-project",
+  "inputs": {
+    "projectName": {
+      "required": true,
+      "example": "demo-project",
+      "type": "string"
+    },
+    "sourcePath": {
+      "required": true,
+      "example": "/work/demo-project",
+      "type": "string"
+    },
+    "driveFolderId": {
+      "required": true,
+      "example": "1AbCdEf...",
+      "type": "string"
+    },
+    "gmailTo": {
+      "required": true,
+      "example": "operator@example.com",
+      "type": "string"
+    },
+    "googleProfile": {
+      "default": "default",
+      "example": "default",
+      "type": "string"
+    },
+    "partSizeBytes": {
+      "default": 67108864,
+      "example": 67108864,
+      "type": "integer"
+    }
+  },
+  "manifest": {
+    "schema": "workspace-recover/manifest/v1",
+    "name": "${projectName}",
+    "backup": {
+      "source": {
+        "path": "${sourcePath}",
+        "exclude": []
+      },
+      "transport": {
+        "partSizeBytes": "${partSizeBytes}"
+      },
+      "provider": {
+        "type": "google-workspace",
+        "profile": "${googleProfile}",
+        "folderId": "${driveFolderId}"
+      }
+    },
+    "restore": {
+      "target": {
+        "required": true
+      },
+      "existingTarget": "reject",
+      "workflow": []
+    },
+    "handoff": {
+      "provider": {
+        "type": "google-workspace",
+        "profile": "${googleProfile}"
+      },
+      "to": "${gmailTo}",
+      "subject": "workspace-recover ${projectName} recovery handoff"
+    }
+  }
+}
