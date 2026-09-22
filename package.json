@@ -1,6 +1,6 @@
 {
   "name": "workspace-recover",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Declarative backup and recovery runtime with clean-room recovery rehearsal.",

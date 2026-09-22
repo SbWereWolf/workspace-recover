@@ -1,7 +1,7 @@
 import { assertFormat } from './formats.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
-import { ensureDir, homeStateDir, nowIso, readJson, sessionId, writeJsonAtomic } from './util.mjs';
+import { ensureDir, homeStateDir, nowIso, readJson, sha256Text, pathExists, sessionId, writeJsonAtomic } from './util.mjs';
 
 export class SessionStore {
   constructor(root = homeStateDir()) {
@@ -9,12 +9,12 @@ export class SessionStore {
   }
 
   directory(id) {
-    if (typeof id !== 'string' || !/^wr_[br]_\d{14}_[a-f0-9]{12}$/.test(id)) throw new Error('invalid session ID');
+    if (typeof id !== 'string' || !/^wr_[bri]_\d{14}_[a-f0-9]{12}$/.test(id)) throw new Error('invalid session ID');
     return path.join(this.root, 'sessions', id);
   }
 
   async create(operation, extra = {}) {
-    const id = sessionId(operation === 'backup' ? 'wr_b' : 'wr_r');
+    const id = sessionId(({backup:'wr_b',restore:'wr_r',init:'wr_i'})[operation] || 'wr_r');
     const dir = this.directory(id);
     await ensureDir(dir);
     const session = {
@@ -29,6 +29,7 @@ export class SessionStore {
       ...extra,
     };
     await this.save(session);
+    await this.remember(id, process.cwd());
     return session;
   }
 
@@ -40,6 +41,19 @@ export class SessionStore {
     session.updatedAt = nowIso();
     await writeJsonAtomic(path.join(this.directory(session.id), 'session.json'), session);
     return session;
+  }
+
+  async remember(id, scope = process.cwd()) {
+    this.directory(id);
+    const key=sha256Text(path.resolve(scope));
+    await writeJsonAtomic(path.join(this.root,'current',`${key}.json`),{schema:'workspace-recover/current-session/v2',sessionId:id,scope:path.resolve(scope)});
+  }
+
+  async current(scope = process.cwd()) {
+    const file=path.join(this.root,'current',`${sha256Text(path.resolve(scope))}.json`);
+    if(!await pathExists(file))throw new Error('No current session in this project/directory. Supply an explicit session ID.');
+    const pointer=assertFormat(await readJson(file),'current-session');
+    await this.load(pointer.sessionId);return pointer.sessionId;
   }
 
   async write(id, relative, value, mode = 0o600) {

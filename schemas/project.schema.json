@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/project/v2",
+  "type": "object",
+  "required": [
+    "schema",
+    "template",
+    "values"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/project/v2"
+    },
+    "template": {
+      "type": "string"
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "defaults": {
+      "type": "object"
+    }
+  }
+}

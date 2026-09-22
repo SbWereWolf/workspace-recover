@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # workspace-recover
@@ -89,3 +89,12 @@ per missing key when the tool already reports the full missing/error batch.
 Use `next SESSION --json` for the complete batch and `continue --values FILE`.
 Old/unversioned formats require a different tool release, never compatibility
 rewrites. Do not override a frozen plan with new input values.
+
+## Project operation
+
+Use `init local` or `init google-workspace` once, with the filled bundled values
+form. Ordinary project runs use `backup` with no positional template. Init keeps
+machine paths in ignored `values.local.json`, not `project.json`. It never
+replaces existing author configuration. `info`, `next`, and `continue` without
+an ID use the nearest project's current session. Always keep the emitted ID for
+cross-directory or multi-project work; there is no global "latest session" guess.

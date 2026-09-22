@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 030 Project Init / Minimal UX
+
+- One-time project init, portable defaults and ignored local values.
+- Nearest-project discovery and no-argument backup.
+- Scoped current session; info/next/continue without copying IDs.
+- Default medium view; full path only.
+
+
 ## 0.2.0 — 029 Batch Inputs
 
 - Current format v2 only; versioned bundled values forms.

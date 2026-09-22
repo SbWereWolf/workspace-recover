@@ -2,7 +2,7 @@
 
 Самостоятельное приложение резервирования и восстановления рабочей области.
 Папка переносится целиком: runtime-imports из родительского репозитория и соседних
-приложений отсутствуют. Это исправленная ранняя поставка 0.2.0, а не сертифицированный релиз.
+приложений отсутствуют. Это исправленная ранняя поставка 0.2.1, а не сертифицированный релиз.
 GitHub-адреса в package metadata задают целевые реквизиты продукта; публикация
 репозитория этой поставкой не выполняется.
 
@@ -54,17 +54,27 @@ workspace-recover backup local-project --interactive --editor /usr/bin/nano
 ## Однократная подготовка и обычная работа
 
 ```bash
-workspace-recover template init project-backup --preset local-project
-workspace-recover backup project-backup \
-  --set projectName=example \
-  --set sourcePath=/work/example \
-  --set backupRoot=/backups/example
+cd /work/my-project
+workspace-recover init local --set backupRoot=/backups/my-project --non-interactive
+workspace-recover backup
+workspace-recover info
 ```
 
-Generator сообщает пути template и values.example. Один раз настройте в template
-исключения и `restore.workflow`, затем меняйте только значения. Для Google вместо
-`local-project` используйте `google-workspace-project`; подготовку OAuth описывает
-[инструкция оператору](docs/google-workspace-oauth.md).
+Для Google: `init google-workspace --values setup.json`. Шаблон копируется в
+`.workspace-recover/template.json`; декларация находится в
+`.workspace-recover/project.json`. Изменяемые машинные значения записываются в
+`.workspace-recover/values.local.json`, для которого сразу создан локальный
+`.gitignore`. Если source не задан отдельно, он вычисляется от корня проекта и
+остаётся корректным после перемещения каталога. `init` не перезаписывает существующую
+конфигурацию. Вызов из подкаталога использует ближайшую проектную декларацию.
+
+`info`, `next` и `continue` без ID используют текущую сессию именно данного
+проекта/каталога, а не последнюю сессию другого проекта. Явный ID доступен всегда.
+`info` по умолчанию показывает `medium`; `--short`/`--full` выбирают другие виды.
+Полный вид по-прежнему печатает только путь.
+
+Экспертный интерфейс `backup TEMPLATE --values FILE` сохранён. Подготовку Google
+OAuth описывает [инструкция оператору](docs/google-workspace-oauth.md).
 
 Каждый backup создаёт отдельные части, скачивает их обратно, проверяет содержимое
 и выполняет восстановление по созданному recovery manifest в своей новой папке

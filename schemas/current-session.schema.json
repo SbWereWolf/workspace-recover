@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/current-session/v2",
+  "type": "object",
+  "required": [
+    "schema",
+    "sessionId",
+    "scope"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/current-session/v2"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    }
+  }
+}

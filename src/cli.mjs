@@ -6,12 +6,14 @@ import { authorizeGoogleWorkspace, googleAuthStatus } from './providers/google-w
 import { initializeTemplate, loadTemplate, loadValues, renderTemplate, describeInputs } from './core/template.mjs';
 import { startBackup, startBackupFromManifest, continueBackup } from './core/backup.mjs';
 import { startRestore, startRestoreFromManifest, continueRestore } from './core/restore.mjs';
+import { discoverProject, projectValues, startProjectInit, continueProjectInit } from './core/project.mjs';
 import { SessionStore } from './core/session.mjs';
 import { homeConfigDir, parseSet, pathExists, writeJsonAtomic } from './core/util.mjs';
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function resolveTemplateReference(reference) {
+  reference=({local:'local-project','google-workspace':'google-workspace-project'})[reference] || reference;
   const direct = path.resolve(reference);
   if (await pathExists(direct)) return direct;
   const candidates = [
@@ -38,7 +40,7 @@ function parseArgs(argv) {
   const positional=[], options={};
   const flags=new Set(['no-browser','non-interactive','interactive','json','short','full']);
   const multiple=new Set(['values','set','set-json']);
-  const allowed=new Set(['state-dir','output','preset','target','google-profile','drive-folder','handoff','manifest','view','type','profile','client','format','editor', ...multiple]);
+  const allowed=new Set(['state-dir','output','preset','target','google-profile','drive-folder','handoff','manifest','view','type','profile','client','format','editor','project-dir','template', ...multiple]);
   for(let i=0;i<argv.length;i++) {
     const arg=argv[i];
     if(!arg.startsWith('--')){positional.push(arg);continue;}
@@ -65,23 +67,24 @@ async function maybeEditBatch(session, options) {
   if(edited.status!==0)return session;
   const values=await loadValues(session.next.valuesFile);
   const store=new SessionStore(options.stateDir || undefined);
-  return session.operation==='backup' ? continueBackup(store,session,values) : continueRestore(store,session,values);
+  return session.operation==='init' ? continueProjectInit(store,session,values) : session.operation==='backup' ? continueBackup(store,session,values) : continueRestore(store,session,values);
 }
 
 function usage() {
   return `workspace-recover
 
 Commands:
+  init <local|google-workspace|template> [--values FILE ...] [--project-dir DIR] [--interactive]
   template init <name> --preset <preset> [--output <dir>]
   template list
   template describe <name> --format json
   template render <template-name|template.json> [--values values.json ...] [--set key=value ...] [--set-json key=JSON ...] [--non-interactive|--interactive] --output <manifest.json>
-  backup <template-name|template.json|manifest.json> [--values values.json ...] [--set key=value ...] [--set-json key=JSON ...] [--non-interactive|--interactive] [--state-dir <dir>]
+  backup [template-name|template.json|manifest.json] [--values values.json ...] [--set key=value ...] [--set-json key=JSON ...] [--non-interactive|--interactive] [--state-dir <dir>]
   restore (--handoff <gmail-url|local-handoff-dir> | --manifest <recovery.json>) [--target <dir>] [--google-profile <name>] [--drive-folder <id|url>] [--state-dir <dir>]
-  continue <session-id> [--values values.json ...] [--set key=value] [--state-dir <dir>]
-  status <session-id> [--state-dir <dir>]
-  next <session-id> [--state-dir <dir>]
-  info <session-id> [--type <type>] [--view short|medium|full] [--state-dir <dir>]
+  continue [session-id] [--values values.json ...] [--set key=value] [--state-dir <dir>]
+  status [session-id] [--state-dir <dir>]
+  next [session-id] [--state-dir <dir>]
+  info [session-id] [--type <type>] [--view short|medium|full] [--state-dir <dir>]
   auth google-workspace --client <oauth-client.json> [--profile default] [--no-browser]
   auth status [--profile default]
 `;
@@ -141,9 +144,25 @@ async function commandTemplate(args) {
   throw new Error('unknown template action');
 }
 
+async function commandInit(args) {
+  const templatePath=await resolveTemplateReference(args.positional[1] || 'local');
+  const values=await loadValues(args.options.values,args.options.set || [],args.options.setJson || []);
+  let session=await startProjectInit({templatePath,values,projectRoot:args.options.projectDir || process.cwd(),stateRoot:args.options.stateDir});
+  session=await maybeEditBatch(session,args.options);printSession(session,args.options);
+  return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
+}
+
 async function commandBackup(args) {
-  const templateRef = args.positional[1];
-  if (!templateRef) throw new Error('backup requires a template name, template.json, or manifest.json');
+  let templateRef = args.positional[1] || args.options.template;
+  if(!templateRef) {
+    const project=await discoverProject();
+    if(!project)throw new Error('Project configuration not found. Run workspace-recover init, or supply a template.');
+    const values=await projectValues(project,args.options);
+    let session=await startBackup({templatePath:path.resolve(project.directory,project.document.template),values,stateRoot:args.options.stateDir});
+    session=await maybeEditBatch(session,args.options);
+    await new SessionStore(args.options.stateDir || undefined).remember(session.id,project.root);
+    printSession(session,args.options);return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
+  }
   let session;
   const direct = path.resolve(templateRef);
   if (await pathExists(direct)) {
@@ -180,41 +199,47 @@ async function commandRestore(args) {
   return session.state === 'failed' ? 1 : 0;
 }
 
+async function contextSession(args,store) {
+  if(args.positional[1])return args.positional[1];
+  const project=await discoverProject();return store.current(project?.root || process.cwd());
+}
+
 async function commandContinue(args) {
-  const id = args.positional[1];
-  if (!id) throw new Error('continue requires session ID');
   const store = new SessionStore(args.options.stateDir || undefined);
+  const id = await contextSession(args,store);
   const session = await store.load(id);
   const values = await loadValues(args.options.values, args.options.set || [], args.options.setJson || []);
-  const result = session.operation === 'backup'
+  let result = session.operation === 'init' ? await continueProjectInit(store,session,values) : session.operation === 'backup'
     ? await continueBackup(store, session, values)
     : await continueRestore(store, session, values);
+  result=await maybeEditBatch(result,args.options);
   printSession(result, args.options);
   return result.state === 'failed' ? 1 : 0;
 }
 
 async function commandStatus(args) {
-  const id = args.positional[1];
   const store = new SessionStore(args.options.stateDir || undefined);
+  const id = await contextSession(args,store);
   const session = await store.load(id);
   printSession(session, args.options);
   return 0;
 }
 
 async function commandNext(args) {
-  const id = args.positional[1];
   const store = new SessionStore(args.options.stateDir || undefined);
+  const id = await contextSession(args,store);
   const session = await store.load(id);
   process.stdout.write(`${JSON.stringify({ session: id, state: session.state, next: session.next }, null, 2)}\n`);
   return 0;
 }
 
 async function commandInfo(args) {
-  const id = args.positional[1];
   const store = new SessionStore(args.options.stateDir || undefined);
+  const id = await contextSession(args,store);
   const session = await store.load(id);
   const type = args.options.type;
-  const view = args.options.view || 'short';
+  if([args.options.short,args.options.full,args.options.view].filter(Boolean).length>1)throw new Error('Choose one info view');
+  const view=args.options.full?'full':args.options.short?'short':args.options.view || 'medium';
   if (!['short', 'medium', 'full'].includes(view)) throw new Error(`unsupported info view: ${view}`);
   if (!type && view === 'full') {
     process.stdout.write(`${path.join(store.directory(id), 'session.json')}\n`);
@@ -254,6 +279,7 @@ export async function main(argv) {
   if (!argv.length || ['-h', '--help', 'help'].includes(argv[0])) { process.stdout.write(usage()); return 0; }
   const args = parseArgs(argv);
   switch (args.positional[0]) {
+    case 'init': return commandInit(args);
     case 'template': return commandTemplate(args);
     case 'backup': return commandBackup(args);
     case 'restore': return commandRestore(args);
