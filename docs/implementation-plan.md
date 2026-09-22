@@ -130,3 +130,64 @@ request/result bridge, замороженные маршруты, сохране
 
 I1/I2: восстановление зависимостей и CJM принятого Stoneweave HEAD 534bebc
 продолжается отдельно; успех тестов workspace-recover не закрывает этот этап.
+
+
+## Финальный аудит исходного плана 034–036 — 1.0.0
+
+Статус: **закрыто для продуктового scope workspace-recover 1.0.0**. Этот раздел отвечает на вопрос, выполнены ли исходные задачи по сути, а не повторяет промежуточные реализации.
+
+### 034 — внешний action/result и connector execution
+
+Реализовано:
+
+- типизированные semantic host operations для Drive/Gmail;
+- request/result binding по session/request/hash;
+- connector/delegated execution и сохранение frozen route/state;
+- пакетное продолжение без ручного переноса URL пользователем;
+- upload/download + Gmail send/readback;
+- повторный ответ не повторяет завершённый side effect;
+- unknown outcome upload/send сначала приводит к reconciliation, а не blind retry;
+- восстановление использует те же exact remote IDs/bytes и общий recovery executor;
+- локальный CLI не получает connector/OAuth токены host-среды;
+- свежие скачанные bytes проверяются локально по size/SHA-256; provider result не выдаётся за криптографическое доказательство.
+
+В итоговом 1.0.0 это обобщено generic `flow host`/`host-plan`/`host-claim`/`reply`, чтобы агенту не требовалось знать внутренний протокол.
+
+### 035 — точный selection/inventory
+
+Реализовано:
+
+- единая source-relative include/exclude semantics; exclude имеет приоритет;
+- `**`, root/nested matches, dotfiles и отсутствие implicit `.gitignore`;
+- symlink не используется для неявного обхода внешнего дерева;
+- один точный selection inventory;
+- NUL-separated file list для внешнего pack;
+- paths/types/modes/bytes/SHA-256/link targets;
+- structural parents не реинклудят исключённые поддеревья;
+- пустые и unmatched selections видимы;
+- восстановленный состав проверяется до пользовательского workflow.
+
+### 036 — пользовательские pack/unpack команды
+
+Реализовано:
+
+- парный `archiveProfile` с user-owned `pack.argv` и `unpack.argv`;
+- `cwd`, `env`, timeout и executable requirements;
+- typed placeholders и exact NUL selection;
+- один и тот же frozen unpack contract в rehearsal/restore legacy path;
+- external command не получает ложного sandbox guarantee;
+- восстановленный inventory проверяется до project workflow;
+- decoder/bootstrap может транспортироваться отдельно и проверяется по hash;
+- regressions PAX/permissions/symlink/merge сохранены.
+
+Сознательно **не** делается каталог готовых команд/форматов: для 7z/xz/zip пользователь задаёт pack/unpack сам. Штатный TAR.GZ остаётся достаточным default.
+
+### Что из старого плана больше не является целью
+
+- дополнительные host adapters без текущей потребности;
+- UI поверх flow state;
+- cryptographic remote provenance/attestation сверх SHA-256 + connector readback;
+- application-specific CJM/JUnit/readiness policy в core;
+- развитие recovery tool в универсальный deployment/multitool.
+
+Итог: функциональные требования 034–036, необходимые для исходной ERP/Stoneweave задачи, выполнены. Открытых feature-blocker'ов перед 1.0.0 нет. Дальнейшие изменения допустимы только из реальной потребности исходной продуктовой работы.

@@ -1,19 +1,23 @@
-# Парные профили архивирования
+# Пользовательские команды упаковки и распаковки
 
-Версия формата: `workspace-recover/archive-profile/v3`. Другие версии не читаются.
-Поле `archiveProfile` в авторском manifest необязательно: без него работает
-встроенный TAR.GZ/PAX с защищённым merge. Наличие exec-профиля означает точное
-исполнение объявленных pack/unpack, никогда не fallback на встроенный архиватор.
+Версия формата: `workspace-recover/archive-profile/v3`. `archiveProfile` нужен только когда автор сознательно выбирает внешний формат/codec. Без него работает штатный TAR.GZ/PAX.
 
-## Готовый профиль
+Инструмент **не выбирает архиватор и не поставляет каталог команд для 7z/xz/zip**. Автор задаёт обе команды сам — `pack.argv` и `unpack.argv` — вместе с `cwd`, `env`, `timeoutMs` и `requires.executables` при необходимости. Это сохраняет одну цель продукта: собрать восстановимый пакет и применить его, не превращая recovery tool в менеджер архиваторов.
 
-В поставке: [GNU tar](../templates/archive-profiles/gnu-tar.json). Скопируйте объект
-в `archiveProfile` один раз. Дальше меняются только значения входов шаблона.
-GNU tar должен быть установлен оператором; инструмент не устанавливает его из сети.
-`--null --verbatim-files-from --no-recursion` передают точный список: каталоги не
-включают исключённых соседей. `--hard-dereference` сохраняет данные, но не обещает
-сохранение топологии hardlink. Имена с пробелами, начальным дефисом, переводами
-строк и длинным UTF-8 не преобразуются в shell-строку.
+Минимальный каркас:
+
+```json
+{
+  "schema": "workspace-recover/archive-profile/v3",
+  "kind": "exec",
+  "format": "YOUR_FORMAT",
+  "requires": {"executables": ["YOUR_TOOL"]},
+  "pack": {"argv": ["YOUR_PACK_COMMAND", "...", "${sourceRoot}", "${archivePath}", "${selectionNul}"]},
+  "unpack": {"argv": ["YOUR_UNPACK_COMMAND", "...", "${archivePath}", "${targetRoot}"]}
+}
+```
+
+Это только форма контракта: конкретные команды принадлежат пользователю.
 
 ## Контракт
 
@@ -37,9 +41,7 @@ SHA256 и целям ссылок **до** авторского workflow. Нул
 
 ## Распаковщик отдельно от payload
 
-Шаблон структуры: [custom.template.json](../templates/archive-profiles/custom.template.json).
-Это фрагмент для включения в существующий project template, не готовая декларация
-без source/provider. `bootstrap` объявляет отдельные файлы `{id,path,sha256?}`.
+Структура `archiveProfile` задаётся прямо в project template/manifest. Отдельный каталог готовых profile-файлов не поставляется: выбор внешней программы и её аргументов принадлежит автору. `bootstrap` объявляет отдельные файлы `{id,path,sha256?}`.
 Команда ссылается на `${bootstrap.ID}`. При backup файл копируется в сессию,
 проверяется и отправляется отдельно; manifest получателя содержит ID/размер/хеш/mode
 вместо локального исходного пути. Restore скачивает и проверяет bootstrap до unpack.

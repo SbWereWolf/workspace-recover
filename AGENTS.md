@@ -25,7 +25,7 @@ folder is copied into its own repository.
 - Google credentials live outside the repository and outside backup payloads.
 - Contract tests are required for behavioral changes.
 
-## Current-stage flow contract (0.4.0)
+## Current-stage flow contract (1.0.0)
 
 Read [the development skill](skills/workspace-recover-development/SKILL.md)
 before changing the recovery runner. For `flow`, an answer changes only the

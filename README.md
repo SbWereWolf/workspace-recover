@@ -1,6 +1,8 @@
 # workspace-recover
 
-Самостоятельное приложение резервирования и восстановления рабочей области.
+Самостоятельный инструмент с одной продуктовой целью: **подготовить пакет восстановления и успешно применить его**.
+Он автоматизирует механическую работу агента: вычисляет точные входы, операции, host-запросы, хэши, решения текущего этапа и следующие действия. Агент не должен помнить внутренний протокол или вручную собирать служебные письма/ссылки.
+
 Папка переносится целиком: runtime-imports из родительского репозитория и соседних
 приложений отсутствуют. Это развиваемая поставка; версия находится в package.json, границы проверки — ниже.
 В финальной поставке локальная `.git/` фиксирует версии самостоятельного пакета;
@@ -26,7 +28,22 @@ node /path/to/workspace-recover/scripts/check.mjs
 не нужен. В примерах ниже `workspace-recover` обозначает bin-команду пакета; без
 установки заменяйте её на `node /path/to/workspace-recover/bin/workspace-recover.mjs`.
 
-## Основной вход 0.4.0: поток по манифесту
+## Распространение через npm
+
+SemVer пакета — публичный контракт. `1.0.0` означает зафиксированный основной workflow; совместимые исправления идут в patch, совместимые функции — в minor, несовместимые изменения — только в major.
+
+Проверка поставляемого tarball выполняется до релиза:
+
+```bash
+npm pack
+npm install -g ./workspace-recover-1.0.0.tgz
+workspace-recover --version
+workspace-recover flow template --output /tmp/recovery.json
+```
+
+После публикации в registry установка должна сводиться к `npm install -g workspace-recover@1`. Публикация считается состоявшейся только после фактического ответа npm registry; наличие tarball или тега Git публикацией не является.
+
+## Основной вход 1.0.0: поток по манифесту
 
 Для новых сценариев используется `flow`. Ответ пользователя относится только к
 текущему шагу; после него остальные однозначные шаги выполняются без вопросов.
@@ -42,6 +59,56 @@ workspace-recover flow run --manifest /tmp/recovery.json --session /tmp/recovery
 границу host/инструмент. [Developer skill](skills/workspace-recover-development/SKILL.md)
 закрепляет контракт разработки. Штатный шаблон содержит пустой список шагов и
 только неисполняемый комментарий с рекомендацией автотестов.
+
+### Итоговый рабочий процесс
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant A as Agent / Host
+    participant W as workspace-recover
+    participant L as Local OS / Commands
+    participant X as Authorized Connector
+
+    A->>W: flow run(manifest, session)
+    loop Пока есть этапы
+        W->>W: Resolve current step
+        alt Однозначный локальный этап
+            W->>L: declared file/process operation
+            L-->>W: observed result
+            W->>W: persist evidence and continue
+        else Нужна внешняя операция
+            W-->>A: typed HostRequest + exact call plan
+            A->>X: execute authorized connector call
+            X-->>A: provider result / downloaded bytes
+            A->>W: flow reply(actual result + paths)
+            W->>W: normalize, hash, persist, continue
+        else Объявлен retry
+            W-->>A: notBefore + exact Ubuntu resume command
+            A->>W: flow run after delay
+        else Реальная неоднозначность текущего этапа
+            W-->>A: one decisionRequest + facts + options + Ubuntu commands
+            A-->>U: one question
+            U-->>A: choice
+            A->>W: flow decide(requestId, choice)
+            W->>W: apply only to current step and continue
+        end
+    end
+    W-->>A: completed state + operation results + evidence
+```
+
+Этапы:
+
+1. **Manifest.** Автор заранее задаёт желаемую последовательность. Инструмент не добавляет свои тесты, deployment gates или cleanup.
+2. **Resolve current step.** Пути и входы проверяются только тогда, когда нужны текущей операции; будущая временная папка не считается отсутствующим пользовательским вводом.
+3. **Local execution.** Файловые операции, hashing и команды исполняются ровно как объявлено; наблюдаемый результат сохраняется независимо от дальнейшего решения пользователя.
+4. **Host boundary.** Если нужен Drive/Gmail, инструмент формирует точный HostRequest. Агент лишь вызывает уже выбранный connector с готовыми параметрами и возвращает фактический ответ.
+5. **Retry.** Объявленная политика retry не создаёт вопрос человеку: tool возвращает момент следующего запуска и готовую Ubuntu-команду.
+6. **Decision.** Человек вовлекается только при реальной неоднозначности текущего этапа. Ответ действует только на него; глобального «применить ко всем» нет.
+7. **Continue.** После host/retry/decision инструмент автоматически исполняет весь оставшийся однозначный хвост manifest.
+8. **Evidence.** Состояния, outputs, hashes, stdout/stderr, host responses и решения остаются в session evidence; повторный `run` не повторяет завершённые шаги.
+
+Цель интерфейса — минимизировать рассуждение агента: нормальный агентский цикл сводится к `run -> выполнить готовый host-plan/decision -> reply/decide -> run`.
 
 ## Совместимость: прежние backup/restore v3
 
@@ -175,7 +242,7 @@ container/VM sandbox. Команды manifest исполняются с прав
 [Безопасность](docs/security.md) ·
 [Диагностика](docs/troubleshooting.md) ·
 [Skill агента](skills/workspace-recover/SKILL.md) ·
-[План развития](docs/implementation-plan.md) ·
+[Итоговый аудит плана](docs/implementation-plan.md) ·
 [Версии и выпуск](docs/release-policy.md) ·
 [Контракт tooling](docs/declarative-tooling-contract.md)
 
@@ -210,14 +277,11 @@ Drive/Gmail без передачи OAuth-реквизитов в CLI. Форм�
 
 Выбор содержимого: [include/exclude и inventory](docs/selection.md).
 
-## Свой архиватор
+## Свои команды упаковки и распаковки
 
-[Парные профили](docs/archive-profiles.md) задают команды упаковки и распаковки
-одним версионированным объектом `archiveProfile`. Готовый GNU tar-профиль:
-[templates/archive-profiles/gnu-tar.json](templates/archive-profiles/gnu-tar.json).
-Встроенный профиль остаётся вариантом без внешних зависимостей и с safe merge.
+[Парный контракт](docs/archive-profiles.md) позволяет автору манифеста задать **собственные** `pack` и `unpack` команды как `argv`. Инструмент не выбирает формат за пользователя, не содержит каталога команд для 7z/xz/zip и не устанавливает архиваторы. Без внешнего профиля используется штатный TAR.GZ/PAX. Для любого другого формата обе команды задаёт пользователь; инструмент связывает аргументы, сохраняет их в recovery manifest и проверяет восстановленный inventory.
 
-## 0.4.0: caller-owned recovery flows
+## 1.0.0: caller-owned recovery flows
 
 [Flow operator documentation](docs/flow.md) describes the generic `flow` entrypoint.
 [Development skill](skills/workspace-recover-development/SKILL.md) defines stage-scoped

@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 0.4.0
+version: 1.0.0
 ---
 
 # workspace-recover
@@ -11,7 +11,7 @@ is the current default contract. The legacy material below only documents the
 previous explicit backup/restore entrypoints; do not impose its fixed rehearsal
 cycle, batch forms, or restrictions on generic flow.
 
-## Generic flow (0.4.0)
+## Generic flow (1.0.0)
 
 See [operator flow documentation](../../docs/flow.md). Use `flow run` for a
 caller-owned sequence. Never ask a human about an unambiguous stage. A response
@@ -204,13 +204,4 @@ scanner. Never drop its required capability to make an older executor accept it.
 
 ## Paired archive profiles
 
-Read [archive profiles](../../docs/archive-profiles.md). Use the bundled
-`templates/archive-profiles/gnu-tar.json` only when GNU tar is an explicit
-operator dependency. Freeze both pack and unpack commands in the external
-recovery manifest; never substitute a different command after failure. Pass
-the exact generated NUL file list, not re-expanded glob strings. Bootstrap
-decoders must be separately transported/hash-verified, never only inside the
-unopened payload. External commands are trusted author code, not sandboxed;
-external profiles restore into new targets. The builtin retains safe merge.
-Inspect saved pack/unpack reports; full view is a path. Actual source inventory
-comparison precedes author tests; do not add post-test mutation scanning.
+Read [archive profiles](../../docs/archive-profiles.md). For a non-default format, the manifest author supplies both pack and unpack argv. Do not select an archive tool or format for the caller and do not invent a built-in command catalog. Freeze both commands in the recovery manifest; never substitute a different command after failure. Pass the exact generated NUL file list, not re-expanded glob strings. Bootstrap decoders must be separately transported/hash-verified, never only inside the unopened payload. External commands are trusted author code, not sandboxed; external profiles restore into new targets. The builtin TAR.GZ path retains safe merge. Inspect saved pack/unpack reports; full view is a path. Actual source inventory comparison precedes author tests; do not add post-test mutation scanning.

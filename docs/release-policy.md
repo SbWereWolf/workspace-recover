@@ -38,3 +38,15 @@ node scripts/release-check.mjs
 
 Она не объявляет Git history проверенной. Наличие файла `CHANGELOG.md` само по себе
 не означает, что commit или тег были созданы.
+
+## npm и SemVer после 1.0.0
+
+Начиная с `1.0.0`, npm package является основной моделью распространения между агентами. SemVer — часть продуктового контракта:
+
+- patch — совместимые исправления;
+- minor — совместимое расширение существующей цели recovery;
+- major — несовместимое изменение CLI/manifest/runtime contract.
+
+Перед релизом обязательны локальные tests/release-check, затем `npm pack`, установка **из полученного `.tgz`** в отдельный prefix и smoke основных CLI-команд. Проверяются именно упакованные байты, а не только исходный checkout. `private:true` запрещён для публичного release package.
+
+Публикация в registry — отдельный внешний факт. Release tarball, Git tag и `publishConfig` означают готовность к публикации, но не заменяют успешный `npm publish` и registry readback.

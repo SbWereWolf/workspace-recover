@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0 — 2026-09-23
+
+- Stable product contract: prepare a recovery package and successfully apply it; no speculative multitool scope.
+- Generic flow is the primary agent-facing entrypoint with stage-scoped decisions and deterministic continuation without confirmation prompts.
+- Typed host requests keep Drive/Gmail connector execution mechanical for the agent; the tool owns paths, recipients, hashes, next actions, and result normalization.
+- User-owned external archive commands remain paired `pack`/`unpack` declarations; no catalog of built-in format commands is added.
+- Root README and flow documentation now contain the canonical sequence diagram and a textual description of every workflow stage.
+- npm is the canonical distribution model: package metadata is publishable, SemVer is stable at 1.0.0, and release verification includes `npm pack` plus installation from packed bytes.
+- Original phases 034–036 are audited as complete for the product scope; rejected speculative extensions are recorded explicitly.
+
 ## 0.4.0 — 2026-09-22
 
 - Native generic flow runner with stage-scoped decisions and silent deterministic continuation.
