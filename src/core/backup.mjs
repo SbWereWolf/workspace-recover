@@ -1,3 +1,4 @@
+import {validateArchiveProfile,prepareBootstrap,packArchive,resolvedArchiveProfile} from './archive-profile.mjs';
 import { compileManifest } from './declaration.mjs';
 import { assertFormat } from './formats.mjs';
 import { createCleanRoom, removeCleanRoom } from './clean-room.mjs';
@@ -128,11 +129,13 @@ async function runBackupPlan(store, session, plan) {
   const mail=providerFromConfig(manifest.handoff.provider,providerContext(store,session,'handoff',['gmail.send','gmail.read'],session.execution));
   if(!await providerReadyOrWait(store,session,provider)||!await providerReadyOrWait(store,session,mail))return session;
   const artifactDir=await ensureDir(path.join(sessionDir,'artifacts'));
-  const archivePath=path.join(artifactDir,'workspace-backup.tar.gz');
+  const archivePath=path.join(artifactDir,'workspace-backup.'+(manifest.archiveProfile?.format||'tar.gz'));
+  if(!progress.bootstrap){progress.bootstrap=await prepareBootstrap(manifest.archiveProfile,sessionDir);await store.save(session);}
   if(!progress.archive) {
     const selection=await selectSource({source:manifest.backup.source.path,includes:manifest.backup.source.include??['**'],excludes:manifest.backup.source.exclude??[]});
     await fsp.writeFile(path.join(sessionDir,'selected-files.nul'),selectionNul(selection),{flag:'wx',mode:0o600});
-    const captured=await createTarGz({source:manifest.backup.source.path,output:archivePath,selection});
+    const captured=await packArchive({profile:manifest.archiveProfile,source:manifest.backup.source.path,output:archivePath,selection,selectionFile:path.join(sessionDir,'selected-files.nul'),sessionDir,bootstrap:progress.bootstrap});
+    if(captured.packReport){await store.setInfo(session,'pack',captured.packReport);delete captured.packReport;}
     const inventoryPath=await store.write(session.id,'selection-manifest.json',captured.inventory);
     progress.inventory={path:inventoryPath,bytes:(await fsp.stat(inventoryPath)).size,sha256:await sha256File(inventoryPath)};
     const t=captured.inventory.totals;
@@ -141,7 +144,7 @@ async function runBackupPlan(store, session, plan) {
   } else if(!await pathExists(archivePath)||await sha256File(archivePath)!==progress.archive.sha256)throw new Error('captured archive changed or disappeared; do not recapture a frozen backup');
   if(!progress.parts) {progress.parts=await splitFile({file:archivePath,outputDirectory:path.join(artifactDir,'parts'),maxPartBytes:manifest.backup.transport?.partSizeBytes||64*1024*1024});await store.save(session);}
   progress.uploadedParts??=[];
-  const uploads=await Promise.allSettled([...progress.parts.map(async part=>{
+  const uploads=await Promise.allSettled([...progress.bootstrap.map(async b=>{if(!b.remote){b.remote=await provider.upload(b.path,{name:`workspace-recover-${session.id}-bootstrap-${b.id}`,folderId:manifest.backup.provider.folderId});await store.save(session);}}),...progress.parts.map(async part=>{
     if(progress.uploadedParts[part.index]?.id)return;
     const remote=await provider.upload(part.path,{name:`${session.id}-${part.fileName}`,folderId:manifest.backup.provider.folderId});
     progress.uploadedParts[part.index]={...remote,index:part.index,bytes:part.bytes,sha256:part.sha256,fileName:part.fileName};await store.save(session);
@@ -149,7 +152,7 @@ async function runBackupPlan(store, session, plan) {
     if(!progress.selectionRemote){progress.selectionRemote=await provider.upload(progress.inventory.path,{name:`workspace-recover-${session.id}-selection.json`,folderId:manifest.backup.provider.folderId});await store.save(session);}
   })()]);
   const failed=uploads.find(x=>x.status==='rejected');if(failed)throw failed.reason;
-  const transport={schema:'workspace-recover/transport-manifest/v3',archive:{fileName:path.basename(archivePath),bytes:progress.archive.bytes,sha256:progress.archive.sha256,format:'tar.gz'},
+  const transport={schema:'workspace-recover/transport-manifest/v3',archive:{fileName:path.basename(archivePath),bytes:progress.archive.bytes,sha256:progress.archive.sha256,format:manifest.archiveProfile?.format||'tar.gz'},
     provider:resourceProvider(manifest.backup.provider),parts:progress.uploadedParts.map(p=>({index:p.index,fileName:p.fileName,bytes:p.bytes,sha256:p.sha256,remote:{id:p.id,url:p.url,parent:p.parent}}))};
   const transportPath=await store.write(session.id,'transport-manifest.json',transport);
   if(!progress.transportRemote){progress.transportRemote=await provider.upload(transportPath,{name:`workspace-recover-${session.id}-transport-manifest.json`,folderId:manifest.backup.provider.folderId});await store.save(session);}
@@ -159,8 +162,8 @@ async function runBackupPlan(store, session, plan) {
   if(progress.recoveryManifestSha256) {
     if(await sha256File(recoveryPath)!==progress.recoveryManifestSha256)throw new Error('frozen recovery manifest changed');recovery=await readJson(recoveryPath);
   } else {
-    recovery={schema:'workspace-recover/recovery-manifest/v3',backupSessionId:session.id,createdAt:nowIso(),transport,selection:{bytes:progress.inventory.bytes,sha256:progress.inventory.sha256,remote:{id:progress.selectionRemote.id,url:progress.selectionRemote.url,parent:progress.selectionRemote.parent}},
-      requires:{formatVersion:3,features:[...new Set([...(manifest.requires?.features||[]),'pax-paths','safe-merge','selection-inventory'])]},project:{name:manifest.name||'workspace'},
+    recovery={...(manifest.archiveProfile?{archiveProfile:resolvedArchiveProfile(manifest.archiveProfile,progress.bootstrap)}:{}),schema:'workspace-recover/recovery-manifest/v3',backupSessionId:session.id,createdAt:nowIso(),transport,selection:{bytes:progress.inventory.bytes,sha256:progress.inventory.sha256,remote:{id:progress.selectionRemote.id,url:progress.selectionRemote.url,parent:progress.selectionRemote.parent}},
+      requires:{formatVersion:3,features:[...new Set([...(manifest.requires?.features||[]),'pax-paths','selection-inventory',...(manifest.archiveProfile?['archive-profiles']:['safe-merge'])])]},project:{name:manifest.name||'workspace'},
       restore:{existingTarget:manifest.restore.existingTarget||'reject',target:manifest.restore.target||{required:true},workflow:manifest.restore.workflow||[]}};
     await store.write(session.id,'workspace-recovery-manifest.json',recovery);progress.recoveryManifestSha256=await sha256File(recoveryPath);await store.save(session);
   }
@@ -184,6 +187,7 @@ async function runBackupPlan(store, session, plan) {
     await store.write(session.id,'rehearsal-receipt.json',receipt);progress.rehearsal.state=clean?'completed':'completed_with_warnings';progress.rehearsal.cleanRoom=receipt.cleanRoom;progress.rehearsalCompleted=true;await store.save(session);
   }
   const workflow=execution.workflow;
+  if(execution.unpackReport)await store.setInfo(session,'unpack',execution.unpackReport);
   const backupReceiptPath=path.join(sessionDir,'backup-receipt.json');
   if(!progress.backupReceiptWritten){await store.write(session.id,'backup-receipt.json',{schema:'workspace-recover/backup-receipt/v3',sessionId:session.id,archive:transport.archive,transportManifestRemote:progress.transportRemote,freshProviderRoundtripVerified:true,recoveryRehearsal:receipt,completedAt:nowIso()});progress.backupReceiptWritten=true;await store.save(session);}
   const backupReceipt=await readJson(backupReceiptPath);

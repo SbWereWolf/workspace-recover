@@ -28,14 +28,15 @@ async function runCommand(step, workspace, stepDir, context) {
   let code = null;
   let signal = null;
   let spawnError = null;
+  let timedOut = false;
   try {
     const child = spawn(argv[0], argv.slice(1), { cwd, env, shell: false, stdio: ['ignore', stdout.fd, stderr.fd] });
     const terminal = await new Promise(resolve => {
-      let timer = null;
-      if (step.timeoutMs) timer = setTimeout(() => { child.kill('SIGTERM'); }, step.timeoutMs);
+      let timer = null, killTimer = null;
+      if (step.timeoutMs) timer = setTimeout(() => { timedOut=true; child.kill('SIGTERM'); killTimer=setTimeout(()=>child.kill('SIGKILL'),250); }, step.timeoutMs);
       child.on('error', error => resolve({ error }));
       child.on('close', (exitCode, exitSignal) => resolve({ exitCode, exitSignal }));
-      child.on('close', () => { if (timer) clearTimeout(timer); });
+      child.on('close', () => { if (timer) clearTimeout(timer); if(killTimer)clearTimeout(killTimer); });
     });
     if (terminal.error) spawnError = terminal.error.message;
     else { code = terminal.exitCode; signal = terminal.exitSignal; }
@@ -45,8 +46,8 @@ async function runCommand(step, workspace, stepDir, context) {
   }
   const stdoutText = await fsp.readFile(stdoutPath, 'utf8');
   const stderrText = await fsp.readFile(stderrPath, 'utf8');
-  const status = spawnError ? 'error' : code === 0 ? 'passed' : 'failed';
-  return { id: step.id, type: step.type, argv, cwd, status, exitCode: code, signal, spawnError, startedAt, finishedAt: nowIso(), durationMs: Date.now() - start, stdout: stdoutText, stderr: stderrText, stdoutPath, stderrPath };
+  const status = spawnError ? 'error' : !timedOut && code === 0 ? 'passed' : 'failed';
+  return { id: step.id, type: step.type, argv, cwd, status, exitCode: code, signal, spawnError, timedOut, startedAt, finishedAt: nowIso(), durationMs: Date.now() - start, stdout: stdoutText, stderr: stderrText, stdoutPath, stderrPath };
 }
 
 /** Structural validation is separate from author-owned step policy. */

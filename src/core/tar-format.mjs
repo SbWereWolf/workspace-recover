@@ -111,7 +111,8 @@ export async function* tarEntries(handle) {
     if (text(b,257,6) !== 'ustar') throw new Error('unsupported tar header format');
     const type = text(b,156,1) || '0'; const rawSize = number(b,124,12); const mode = number(b,100,8);
     if (mode > 0o7777) throw new Error('invalid tar mode');
-    const prefix = text(b,345,155); const rawName = `${prefix ? prefix+'/' : ''}${text(b,0,100)}`;
+    // PAX may override a legacy field truncated mid UTF-8 sequence. Decode only the effective name.
+    const rawName = () => {const prefix=text(b,345,155);return `${prefix ? prefix+'/' : ''}${text(b,0,100)}`;};
     if (type === 'x' || type === 'g') {
       if (rawSize > MAX_PAX_BYTES) throw new Error('PAX metadata exceeds 1 MiB limit');
       if (offset + rawSize + padding(rawSize) > total) throw new Error('truncated PAX data');
@@ -119,9 +120,9 @@ export async function* tarEntries(handle) {
       if (type === 'x') local = {...local,...attrs}; else { for(const [k,v] of Object.entries(attrs)){if(v==='')delete global[k];else global[k]=v;} }
       offset += rawSize + padding(rawSize); continue;
     }
-    if (!['0','2','5'].includes(type)) throw new Error(`unsupported tar entry type ${type} for ${rawName}`);
+    if (!['0','2','5'].includes(type)) throw new Error(`unsupported tar entry type ${type}`);
     const attrs = {...global,...local}; local = null;
-    const fullName = attrs.path || rawName; const name = archiveName(fullName);
+    const fullName = attrs.path || rawName(); const name = archiveName(fullName);
     const linkname = attrs.linkpath || text(b,157,100);
     let size = rawSize;
     if (attrs.size !== undefined) { if(!/^[0-9]+$/.test(attrs.size))throw new Error('invalid PAX size');size=Number(attrs.size); }

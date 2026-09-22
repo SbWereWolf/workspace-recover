@@ -1,3 +1,4 @@
+import {PROFILE_PLACEHOLDERS} from './archive-profile.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { assertFormat, schema } from './formats.mjs';
@@ -133,7 +134,9 @@ export async function renderTemplate(template, suppliedValues = {}, suppliedProv
   delete authorManifest.actions;delete authorManifest.reporters;
   const workflow=authorManifest.restore?.workflow;
   if (workflow!==undefined) delete authorManifest.restore.workflow;
+  const archiveProfile=authorManifest.archiveProfile;delete authorManifest.archiveProfile;
   const rendered=renderValue(authorManifest,values,{allowMissing:true});
+  if(archiveProfile!==undefined){const deferred=[...PROFILE_PLACEHOLDERS,...(archiveProfile.bootstrap||[]).map(b=>'bootstrap.'+b.id)];const r=renderValue(archiveProfile,values,{allowMissing:true,deferred});rendered.value.archiveProfile=r.value;rendered.missing.push(...r.missing);}
   if (workflow!==undefined) {
     const runtime=renderValue(workflow,values,{allowMissing:true,deferred:['workspace','stepDir','operation']});
     rendered.value.restore.workflow=runtime.value;rendered.missing.push(...runtime.missing);

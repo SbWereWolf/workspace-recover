@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 0.3.1
+version: 0.3.2
 ---
 
 # workspace-recover
@@ -184,3 +184,16 @@ parent directories do not recursively re-include siblings. Selection inventory i
 published externally and bound by hash in the recovery manifest. Verification checks
 this inventory during extraction before author workflow, not as a post-test mutation
 scanner. Never drop its required capability to make an older executor accept it.
+
+## Paired archive profiles
+
+Read [archive profiles](../../docs/archive-profiles.md). Use the bundled
+`templates/archive-profiles/gnu-tar.json` only when GNU tar is an explicit
+operator dependency. Freeze both pack and unpack commands in the external
+recovery manifest; never substitute a different command after failure. Pass
+the exact generated NUL file list, not re-expanded glob strings. Bootstrap
+decoders must be separately transported/hash-verified, never only inside the
+unopened payload. External commands are trusted author code, not sandboxed;
+external profiles restore into new targets. The builtin retains safe merge.
+Inspect saved pack/unpack reports; full view is a path. Actual source inventory
+comparison precedes author tests; do not add post-test mutation scanning.

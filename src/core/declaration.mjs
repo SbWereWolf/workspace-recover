@@ -1,3 +1,4 @@
+import {validateArchiveProfile} from './archive-profile.mjs';
 import { assertFormat, schema, assertRequirements } from './formats.mjs';
 import { validateWorkflow } from './workflow.mjs';
 import { validateReporter } from './reporting.mjs';
@@ -29,6 +30,7 @@ export function compileManifest(document) {
     return step;
   });
   validateWorkflow(expanded);
+  validateArchiveProfile(manifest.archiveProfile);
   manifest.restore={...manifest.restore,workflow:expanded};
   delete manifest.actions;delete manifest.reporters;
   manifest.requires??={formatVersion:3,features:['advisory-workflow','saved-reports']};

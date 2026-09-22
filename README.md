@@ -186,3 +186,10 @@ Drive/Gmail без передачи OAuth-реквизитов в CLI. Форм�
 ссылки вручную. В программируемом host используется dispatchCommand.
 
 Выбор содержимого: [include/exclude и inventory](docs/selection.md).
+
+## Свой архиватор
+
+[Парные профили](docs/archive-profiles.md) задают команды упаковки и распаковки
+одним версионированным объектом `archiveProfile`. Готовый GNU tar-профиль:
+[templates/archive-profiles/gnu-tar.json](templates/archive-profiles/gnu-tar.json).
+Встроенный профиль остаётся вариантом без внешних зависимостей и с safe merge.

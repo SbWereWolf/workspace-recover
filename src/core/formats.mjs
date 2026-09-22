@@ -8,7 +8,7 @@ export function assertFormat(document, kind) {
   return document;
 }
 
-export const FEATURES = new Set(['advisory-workflow','saved-reports','named-actions','batch-inputs','google-workspace','local-files','tar-gzip','pax-paths','safe-merge','selection-inventory']);
+export const FEATURES = new Set(['advisory-workflow','saved-reports','named-actions','batch-inputs','google-workspace','local-files','tar-gzip','pax-paths','safe-merge','selection-inventory','archive-profiles']);
 export function assertRequirements(requires) {
   if (requires===undefined)return;
   if (!requires || typeof requires!=='object' || Array.isArray(requires))throw new Error('requires must be an object');
@@ -17,7 +17,7 @@ export function assertRequirements(requires) {
 }
 export function assertTransport(transport) {
   assertFormat(transport,'transport-manifest');
-  if(transport.archive?.format!=='tar.gz')throw new Error('unsupported archive format');
+  if(!/^[a-z0-9][a-z0-9.-]{0,31}$/.test(transport.archive?.format||''))throw new Error('unsupported archive format');
   if(!Number.isSafeInteger(transport.archive.bytes) || transport.archive.bytes<0 || !/^[a-f0-9]{64}$/.test(transport.archive.sha256 || ''))throw new Error('invalid transport archive size or SHA256');
   if(!Array.isArray(transport.parts) || !transport.parts.length)throw new Error('transport requires parts');
   for(const p of transport.parts)if(!Number.isSafeInteger(p.bytes) || p.bytes<0 || !/^[a-f0-9]{64}$/.test(p.sha256 || '') || typeof p.remote?.id!=='string')throw new Error('invalid transport part metadata');

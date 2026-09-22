@@ -1,0 +1,50 @@
+{
+  "schema": "workspace-recover/template/v3",
+  "name": "custom-codec",
+  "inputs": {
+    "codecPath": {
+      "type": "path",
+      "required": true
+    }
+  },
+  "manifest": {
+    "schema": "workspace-recover/manifest/v3",
+    "archiveProfile": {
+      "schema": "workspace-recover/archive-profile/v3",
+      "kind": "exec",
+      "format": "custom",
+      "requires": {
+        "executables": [
+          "node"
+        ]
+      },
+      "bootstrap": [
+        {
+          "id": "codec",
+          "path": "${codecPath}"
+        }
+      ],
+      "pack": {
+        "argv": [
+          "node",
+          "${bootstrap.codec}",
+          "pack",
+          "${sourceRoot}",
+          "${archivePath}",
+          "${selectionNul}"
+        ],
+        "timeoutMs": 900000
+      },
+      "unpack": {
+        "argv": [
+          "node",
+          "${bootstrap.codec}",
+          "unpack",
+          "${targetRoot}",
+          "${archivePath}"
+        ],
+        "timeoutMs": 900000
+      }
+    }
+  }
+}

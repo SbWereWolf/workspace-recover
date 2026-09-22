@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — 2026-09-22
+
+- Paired versioned exec archive profiles, typed late-bound argv, explicit executable requirements.
+- Separate hash-pinned decoder bootstrap transport and shared rehearsal/ordinary restore.
+- Inventory verification for external formats, no fallback on command failure, saved pack/unpack reports.
+- GNU PAX truncated legacy UTF-8 name fields are ignored only when a valid PAX path overrides them.
+- Bounded SIGTERM/SIGKILL handling for declared command timeouts.
+
 ## 0.3.1 — exact selection and inventory
 
 - Source-relative include/exclude with zero-level globstar, dotfiles, explicit precedence.

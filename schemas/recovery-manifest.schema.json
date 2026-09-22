@@ -55,6 +55,9 @@
           ]
         }
       }
+    },
+    "archiveProfile": {
+      "$ref": "archive-profile.schema.json"
     }
   },
   "additionalProperties": true
