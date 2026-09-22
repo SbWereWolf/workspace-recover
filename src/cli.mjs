@@ -1,3 +1,4 @@
+import { flowMain } from './flow/cli.mjs';
 import {initializeBridge, pendingRequests, submitResults} from './core/bridge.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
@@ -76,6 +77,10 @@ function usage() {
   return `workspace-recover
 
 Commands:
+  flow run --manifest FILE --session DIR [--workspace DIR] [--limit N]
+  flow status|host-plan|host-claim --session DIR
+  flow decide --session DIR --request ID --choice CHOICE [--params JSON]
+  flow template [--output FILE]
   bridge init --bridge DIR --capabilities FILE
   bridge pending --bridge DIR [SESSION] --json
   bridge submit --bridge DIR --results FILE
@@ -329,6 +334,7 @@ async function commandBridge(args) {
 }
 
 export async function main(argv) {
+  if(argv[0] === 'flow') return flowMain(argv.slice(1));
   if (!argv.length || ['-h', '--help', 'help'].includes(argv[0])) { process.stdout.write(usage()); return 0; }
   if(argv.length===1 && ['--version','version'].includes(argv[0])){process.stdout.write(JSON.parse(await fsp.readFile(path.join(APP_ROOT,'package.json'),'utf8')).version+'\n');return 0;}
   const args = parseArgs(argv);

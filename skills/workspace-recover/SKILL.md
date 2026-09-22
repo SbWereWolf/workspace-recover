@@ -1,10 +1,27 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 0.3.3
+version: 0.4.0
 ---
 
 # workspace-recover
+
+Use `flow run` for new caller-owned recovery and delivery manifests. This section
+is the current default contract. The legacy material below only documents the
+previous explicit backup/restore entrypoints; do not impose its fixed rehearsal
+cycle, batch forms, or restrictions on generic flow.
+
+## Generic flow (0.4.0)
+
+See [operator flow documentation](../../docs/flow.md). Use `flow run` for a
+caller-owned sequence. Never ask a human about an unambiguous stage. A response
+to `decisionRequest` applies to that stage only. Continue the unchanged rest of
+the manifest automatically. `WAITING_HOST` is serviced by the host, not the human.
+Return each question ID only once and record it using flow presented. Use host-claim before a connector call; after interruption use the generated reconciliation plan, not another send. Missing future staging directories are not
+missing user inputs; preceding steps may create them. No built-in application
+acceptance. Do not copy product-specific test commands into the stock template.
+
+## Legacy v3 entrypoints (explicit compatibility use)
 
 Use the public declarative CLI. Do not reproduce supported internals with ad-hoc
 `curl`, manual part concatenation, `tar`, patching, or custom restore scripts.

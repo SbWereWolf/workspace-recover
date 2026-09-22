@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/decision-request/v3",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/decision-request/v3"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "scope": {
+      "const": "current-step"
+    },
+    "stepId": {
+      "type": "string"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "presented": {
+      "type": "boolean"
+    },
+    "observation": {
+      "type": "object"
+    },
+    "recommendations": {
+      "type": "array"
+    },
+    "options": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "requestId",
+    "scope",
+    "stepId",
+    "index",
+    "observation",
+    "options"
+  ]
+}

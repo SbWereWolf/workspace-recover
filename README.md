@@ -8,7 +8,7 @@
 целевые реквизиты продукта; публикация
 репозитория этой поставкой не выполняется.
 
-Для агента: [обязательный skill](skills/workspace-recover/SKILL.md).
+Для агента: [skill работы с инструментом](skills/workspace-recover/SKILL.md).
 
 ## Запуск без установки зависимостей
 
@@ -25,6 +25,29 @@ node /path/to/workspace-recover/scripts/check.mjs
 `npm test` из каталога приложения запускает тот же собственный runner; `npm install`
 не нужен. В примерах ниже `workspace-recover` обозначает bin-команду пакета; без
 установки заменяйте её на `node /path/to/workspace-recover/bin/workspace-recover.mjs`.
+
+## Основной вход 0.4.0: поток по манифесту
+
+Для новых сценариев используется `flow`. Ответ пользователя относится только к
+текущему шагу; после него остальные однозначные шаги выполняются без вопросов.
+Рабочая и сборочная папки могут не существовать; временный путь можно не задавать.
+Проектные автотесты исполняются только как обычные команды авторского манифеста.
+
+```bash
+workspace-recover flow template --output /tmp/recovery.json
+workspace-recover flow run --manifest /tmp/recovery.json --session /tmp/recovery-session
+```
+
+[Документация потока](docs/flow.md) содержит параметры, решения, Ubuntu-команды и
+границу host/инструмент. [Developer skill](skills/workspace-recover-development/SKILL.md)
+закрепляет контракт разработки. Штатный шаблон содержит пустой список шагов и
+только неисполняемый комментарий с рекомендацией автотестов.
+
+## Совместимость: прежние backup/restore v3
+
+Следующие разделы описывают явно выбранные прежние команды и их фиксированный
+договор доставки, сохранённый для обратной совместимости. Он не применяется к
+`flow` и не является обязательной последовательностью для новых сценариев.
 
 ## Пакетные входы без предварительного вызова
 
@@ -193,3 +216,10 @@ Drive/Gmail без передачи OAuth-реквизитов в CLI. Форм�
 одним версионированным объектом `archiveProfile`. Готовый GNU tar-профиль:
 [templates/archive-profiles/gnu-tar.json](templates/archive-profiles/gnu-tar.json).
 Встроенный профиль остаётся вариантом без внешних зависимостей и с safe merge.
+
+## 0.4.0: caller-owned recovery flows
+
+[Flow operator documentation](docs/flow.md) describes the generic `flow` entrypoint.
+[Development skill](skills/workspace-recover-development/SKILL.md) defines stage-scoped
+decisions, silent deterministic continuation, deferred folders, and resilient delivery.
+Run `node bin/workspace-recover.mjs flow template` for the empty stock template.

@@ -26,7 +26,7 @@ export async function auditDistribution(root=path.resolve(path.dirname(fileURLTo
       }
       if(file.endsWith('.mjs') && file.includes(`${path.sep}src${path.sep}`)) {
         modules++;const text=await fsp.readFile(file,'utf8');
-        for(const m of text.matchAll(/(?:from\s*|import\s*\()(['"])([^'"]+)\1/g)) {
+        for(const m of text.matchAll(/(?:\b(?:import|export)\s+(?:[^;\n]*?\s+from\s*)|\bimport\s*\()(['"])([^'"]+)\1/g)) {
           const spec=m[2];if(spec.startsWith('node:'))continue;
           const resolved=path.resolve(path.dirname(file),spec);
           if(!spec.startsWith('.') || path.relative(root,resolved).startsWith('..'))errors.push(`nonstandalone import: ${file}: ${spec}`);

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/flow/v3",
+  "title": "Caller-owned recovery flow",
+  "type": "object",
+  "required": [
+    "schema",
+    "steps"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/flow/v3"
+    },
+    "_comment": {
+      "type": "string"
+    },
+    "workspace": {
+      "type": "string",
+      "description": "Optional; the directory need not exist. Omit to allocate an OS temporary workspace."
+    },
+    "bridge": {
+      "type": "string"
+    },
+    "variables": {
+      "type": "object"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "op"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "op": {
+            "enum": [
+              "tempdir",
+              "mkdir",
+              "input",
+              "copy",
+              "move",
+              "archive",
+              "extract",
+              "write",
+              "hash",
+              "command",
+              "verification",
+              "host"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "saveAs": {
+            "type": "string"
+          },
+          "argv": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "existingTarget": {
+            "enum": [
+              "ask",
+              "merge",
+              "overwrite",
+              "new-directory",
+              "skip"
+            ]
+          },
+          "missingSource": {
+            "enum": [
+              "skip",
+              "create-empty"
+            ]
+          },
+          "onError": {
+            "enum": [
+              "continue",
+              "ask",
+              "stop"
+            ],
+            "default": "continue"
+          },
+          "retry": {
+            "type": "object",
+            "required": [
+              "maxAttempts",
+              "delayMs"
+            ],
+            "properties": {
+              "maxAttempts": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "delayMs": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "expected": {
+            "type": "object"
+          },
+          "payload": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

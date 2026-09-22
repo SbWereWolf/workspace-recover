@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/host-action/v3",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/host-action/v3"
+    },
+    "status": {
+      "type": "string"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "operation": {
+      "type": "string"
+    },
+    "calls": {
+      "type": "array"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "status",
+    "requestId",
+    "operation",
+    "calls"
+  ]
+}

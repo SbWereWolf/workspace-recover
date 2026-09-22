@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/flow-state/v3",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/flow-state/v3"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "directory": {
+      "type": "string"
+    },
+    "workspace": {
+      "type": "string"
+    },
+    "manifest": {
+      "$ref": "workspace-recover/flow/v3"
+    },
+    "cursor": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decisions": {
+      "type": "array"
+    },
+    "results": {
+      "type": "array"
+    },
+    "observations": {
+      "type": "array"
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "sessionId",
+    "manifest",
+    "cursor",
+    "results",
+    "status"
+  ]
+}

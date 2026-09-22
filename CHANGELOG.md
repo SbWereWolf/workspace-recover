@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 — 2026-09-22
+
+- Native generic flow runner with stage-scoped decisions and silent deterministic continuation.
+- Just-in-time input resolution and optional artifact staging directories.
+- Author-owned retries and failure policies; observed failures are not global gates.
+- Reused typed Google host bridge with generated connector call plans and raw-response normalization.
+- Empty stock flow template; project checks are manifest commands, not runtime acceptance policy.
+- Operator documentation and development skill.
+
+
 ## 0.3.3 — 2026-09-22
 
 - Synchronize timeout escalation regression with real child readiness using a controlled parent clock.

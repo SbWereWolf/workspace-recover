@@ -1,0 +1,5 @@
+{
+  "schema": "workspace-recover/flow/v3",
+  "_comment": "Consider running your project automated tests after recovery, when applicable.",
+  "steps": []
+}
