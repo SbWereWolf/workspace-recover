@@ -51,7 +51,10 @@
     "backup": {
       "source": {
         "path": "${sourcePath}",
-        "exclude": []
+        "exclude": [],
+        "include": [
+          "**"
+        ]
       },
       "transport": {
         "partSizeBytes": "${partSizeBytes}"

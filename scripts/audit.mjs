@@ -14,6 +14,7 @@ export async function auditDistribution(root=path.resolve(path.dirname(fileURLTo
         json++;let value;try{value=JSON.parse(await fsp.readFile(file,'utf8'));}catch(e){errors.push(`${file}: ${e.message}`);continue;}
         if(value.schema?.startsWith('workspace-recover/') && !value.schema.endsWith(`/v${FORMAT_VERSION}`))errors.push(`noncurrent format: ${file}`);
         if(file.includes(`${path.sep}schemas${path.sep}`) && !value.$id?.endsWith(`/v${FORMAT_VERSION}`))errors.push(`noncurrent schema ID: ${file}`);
+        if(value.$id?.startsWith('workspace-recover/')&&value.properties?.formatVersion?.const!==undefined&&value.properties.formatVersion.const!==FORMAT_VERSION)errors.push(`noncurrent formatVersion constraint: ${file}`);
       }
       if(file.endsWith('.md')) {
         markdown++;const text=await fsp.readFile(file,'utf8');

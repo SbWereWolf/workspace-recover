@@ -21,7 +21,7 @@ workspace-recover profile list
 ```
 
 Создаётся `~/.config/workspace-recover/profiles/personal.json`, либо файл в
-`$WORKSPACE_RECOVER_CONFIG_DIR/profiles`. Это текущий формат `profile/v2`.
+`$WORKSPACE_RECOVER_CONFIG_DIR/profiles`. Это текущий формат `profile/v3`.
 Профиль содержит локальный корень рабочих областей и имя credential profile;
 никаких OAuth token/client значений в нём нет. Повторный `create` не перезаписывает
 файл. Его можно осознанно отредактировать перед новым запуском.

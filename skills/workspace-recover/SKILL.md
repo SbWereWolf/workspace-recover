@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # workspace-recover
@@ -174,3 +174,13 @@ Read the sent message and download requested JSON attachments. Do not attach
 source-code archives. Unknown external outcomes require reconciliation, never
 a blind resend. `info --type connector --full` returns the preserved exchange
 file path. Bridge operations and replies have v3 schemas and request hashes.
+
+## Exact capture selection
+
+Read [selection rules](../../docs/selection.md). Use source-relative include/exclude
+arrays. No implicit .gitignore or dotfile filtering. Do not pass raw patterns to
+archive commands; the runtime produces an exact NUL-delimited entry list. Structural
+parent directories do not recursively re-include siblings. Selection inventory is
+published externally and bound by hash in the recovery manifest. Verification checks
+this inventory during extraction before author workflow, not as a post-test mutation
+scanner. Never drop its required capability to make an older executor accept it.

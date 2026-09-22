@@ -17,7 +17,32 @@
       "required": [
         "source",
         "provider"
-      ]
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     },
     "restore": {
       "type": "object",

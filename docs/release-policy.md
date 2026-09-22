@@ -1,7 +1,7 @@
 # Версия формата и выпуск приложения
 
 Все собственные самостоятельные JSON-документы имеют поле `schema` текущего
-семейства `workspace-recover/<kind>/v2`. Вложенные workflow/actions/reporters
+семейства `workspace-recover/<kind>/v3`. Вложенные workflow/actions/reporters
 версионируются содержащим их документом; JSON Schema описания имеют `$id` с той
 же версией. Данные Google OAuth/API и пользовательские raw JSON/JUnit отчёты
 имеют внешние форматы: их нельзя переименовывать заменой `/v1/` на `/v2/`.

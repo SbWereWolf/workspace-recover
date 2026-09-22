@@ -178,7 +178,7 @@ connector-assisted скачиванием не означают успешный
 чтение metadata/проверка folder, скачивание, Gmail send и чтение JSON attachments.
 Сетевые вызовы аккаунта в этих тестах не выполняются. Реальные файлы релизов
 передаются авторизованным коннектором и проверяются отдельно. Gmail API URL
-использует `/gmail/v1/`, Drive — `/drive/v3/`; собственные документы — `/v2`.
+использует `/gmail/v1/`, Drive — `/drive/v3/`; собственные документы — `/v3`.
 
 [Контракт Gmail messages.get](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/get) ·
 [Загрузка в Drive](https://developers.google.com/workspace/drive/api/guides/manage-uploads).

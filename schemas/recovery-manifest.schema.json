@@ -31,6 +31,30 @@
     },
     "requires": {
       "$ref": "requirements.schema.json"
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "bytes",
+        "sha256",
+        "remote"
+      ],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "remote": {
+          "type": "object",
+          "required": [
+            "id"
+          ]
+        }
+      }
     }
   },
   "additionalProperties": true

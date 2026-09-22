@@ -2,6 +2,7 @@ import { assertFormat, assertRequirements, assertTransport } from './formats.mjs
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { assembleParts, extractTarGz } from './archive.mjs';
+import {assertInventory} from './selection.mjs';
 import { executeWorkflow, validateWorkflow } from './workflow.mjs';
 import { handoffProviderFromReference, providerFromConfig, providerContext, resourceProvider } from './providers.mjs';
 import { targetFromProfile, validateLocalProfile } from './profiles.mjs';
@@ -57,6 +58,8 @@ export async function executeRecoveryManifest({
     names.add(part.fileName);
   }
   assertTransport(recovery.transport);
+  if(recovery.requires?.features?.includes('selection-inventory')&&!recovery.selection)throw new Error('recovery requires selection inventory');
+  if(recovery.selection&&(!Number.isSafeInteger(recovery.selection.bytes)||recovery.selection.bytes<0||!/^[a-f0-9]{64}$/.test(recovery.selection.sha256||'')||typeof recovery.selection.remote?.id!=='string'))throw new Error('invalid selection inventory reference');
   const providerConfig = recovery.transport?.provider || {};
   const expectedFolder = expectedFolderId(expectedDriveFolder || providerConfig.folderId || null);
   if (expectedDriveFolder && providerConfig.folderId && expectedFolderId(providerConfig.folderId) !== expectedFolderId(expectedDriveFolder)) {
@@ -96,10 +99,18 @@ export async function executeRecoveryManifest({
     throw new Error('assembled recovery archive mismatch');
   }
 
+  let inventory=null;
+  if(recovery.selection) {
+    const file=path.join(downloadDir,'selection-manifest.json'),ref=recovery.selection;
+    const reusable=!freshDownload&&await pathExists(file)&&(await fsp.stat(file)).size===ref.bytes&&await sha256File(file)===ref.sha256;
+    if(!reusable)await provider.download(ref.remote,file,{expectedFolderId:expectedFolder,expectedBytes:ref.bytes,expectedSha256:ref.sha256});
+    if((await fsp.stat(file)).size!==ref.bytes||await sha256File(file)!==ref.sha256)throw new Error('selection inventory download mismatch');
+    inventory=assertInventory(await readJson(file));
+  }
   const workspace = path.resolve(target);
   if(checkpoint.phase!=='extracted') {
     checkpoint.phase='extracting';await writeJsonAtomic(executionFile,checkpoint);
-    await extractTarGz({ archive, destination: workspace, rejectExisting: recovery.restore.existingTarget !== 'merge' });
+    await extractTarGz({ archive, destination: workspace, rejectExisting: recovery.restore.existingTarget !== 'merge', inventory });
     checkpoint.phase='extracted';await writeJsonAtomic(executionFile,checkpoint);
   }
   checkpoint.phase='workflow-running';await writeJsonAtomic(executionFile,checkpoint);
@@ -109,7 +120,7 @@ export async function executeRecoveryManifest({
     sessionDir: path.join(sessionDir, 'workflow'),
     context: { operation },
   });
-  const result={workspace,archive,assembled,workflow};await writeJsonAtomic(resultFile,result);checkpoint.phase='completed';await writeJsonAtomic(executionFile,checkpoint);return result;
+  const result={workspace,archive,assembled,workflow,inventoryVerified:!!inventory,inventoryEntries:inventory?.entries.length||0};await writeJsonAtomic(resultFile,result);checkpoint.phase='completed';await writeJsonAtomic(executionFile,checkpoint);return result;
 }
 
 export async function startRestore({ handoff, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null, execution = {} }) {

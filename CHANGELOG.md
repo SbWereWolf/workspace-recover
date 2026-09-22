@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — exact selection and inventory
+
+- Source-relative include/exclude with zero-level globstar, dotfiles, explicit precedence.
+- Selected-files NUL list; external inventory with exact paths, bytes, modes and hashes.
+- Shared restore validates inventory before author workflow; no post-test scanning.
+- Fresh readback of transport sidecar as well as payload and recovery manifest.
+
 ## 0.3.0 — 2026-09-22
 
 - Phase 034: versioned connector bridge, fixed executor routes and resumable external operations.
