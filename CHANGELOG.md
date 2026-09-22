@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 — 2026-09-22
+
+- Synchronize timeout escalation regression with real child readiness using a controlled parent clock.
+- Preserve the 150 ms deadline, 250 ms escalation, SIGKILL assertion and advisory outcome.
+- No production runtime, manifest format or archive behavior changes.
+
 ## 0.3.2 — 2026-09-22
 
 - Paired versioned exec archive profiles, typed late-bound argv, explicit executable requirements.

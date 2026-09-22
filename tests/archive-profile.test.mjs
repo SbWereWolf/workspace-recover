@@ -27,5 +27,31 @@ test('036: standalone decoder bootstrap is transported separately and works afte
   await fsp.unlink(codec);await fsp.rename(f.source,f.source+'.old');const target=path.join(f.root,'restored');const x=await startRestoreFromManifest({manifestPath:manifest,target,stateRoot:path.join(f.root,'rest-state')});assert.equal(x.state,'completed');assert.equal(await fsp.readFile(path.join(target,'a.txt'),'utf8'),'a.txt');
   await fsp.writeFile(r.archiveProfile.bootstrap[0].remote.id,'tampered');await assert.rejects(()=>startRestoreFromManifest({manifestPath:manifest,target:path.join(f.root,'rejected'),stateRoot:path.join(f.root,'bad-state')}),/bootstrap|mismatch/i);
 });
-test('036: declared timeout terminates a command ignoring SIGTERM and remains advisory',async t=>{const root=await fsp.mkdtemp(path.join(os.tmpdir(),'wr-timeout-'));t.after(()=>fsp.rm(root,{recursive:true,force:true}));const result=await executeWorkflow({steps:[{id:'timeout',type:'verification',argv:[process.execPath,'-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],timeoutMs:150}],workspace:root,sessionDir:path.join(root,'evidence')});assert.equal(result.results[0].timedOut,true);assert.equal(result.results[0].signal,'SIGKILL');assert.equal(result.advisoryWarnings,true);assert.equal(result.hardFailure,false);});
+test('036: declared timeout terminates a ready command ignoring SIGTERM and remains advisory', async t => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'wr-timeout-'));
+  t.after(() => fsp.rm(root, {recursive:true, force:true}));
+  const ready = path.join(root, 'ready');
+  const received = path.join(root, 'term-received');
+  // Parent timers are controlled; the real child must install its handler first.
+  // A 150 ms wall-clock launch deadline can kill Node before that handler exists.
+  t.mock.timers.enable({apis:['setTimeout']});
+  const child = `const fs=require('fs');process.on('SIGTERM',()=>fs.writeFileSync(${JSON.stringify(received)},'ignored'));fs.writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>{},1000);`;
+  const pending = executeWorkflow({steps:[{id:'timeout', type:'verification', argv:[process.execPath,'-e',child], timeoutMs:150}], workspace:root, sessionDir:path.join(root,'evidence')});
+  const waitFor = async file => {
+    const deadline = Date.now()+5000;
+    while (!await fsp.stat(file).catch(() => null)) {
+      assert.ok(Date.now()<deadline, 'child readiness handshake timed out');
+      await new Promise(resolve => setImmediate(resolve));
+    }
+  };
+  await waitFor(ready);
+  t.mock.timers.tick(150);
+  await waitFor(received);
+  t.mock.timers.tick(250);
+  const result = await pending;
+  assert.equal(result.results[0].timedOut, true);
+  assert.equal(result.results[0].signal, 'SIGKILL');
+  assert.equal(result.advisoryWarnings, true);
+  assert.equal(result.hardFailure, false);
+});
 test('036: supplied profile self-version and paired argv are validated before provider calls',async()=>{const {executeRecoveryManifest}=await import('../src/core/restore.mjs');let called=false;const r={schema:S+'recovery-manifest/v3',archiveProfile:{...gnu(),schema:S+'archive-profile/v2'},requires:{formatVersion:3,features:['archive-profiles']},transport:{schema:S+'transport-manifest/v3',archive:{fileName:'x.tar.gz',format:'tar.gz',bytes:1,sha256:'1'.repeat(64)},parts:[{index:0,fileName:'part',bytes:1,sha256:'1'.repeat(64),remote:{id:'x'}}]},restore:{workflow:[]}};await assert.rejects(()=>executeRecoveryManifest({recovery:r,target:'/unused',sessionDir:'/unused',provider:{download(){called=true;}}}),/profile/);assert.equal(called,false);});

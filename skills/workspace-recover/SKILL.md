@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 0.3.2
+version: 0.3.3
 ---
 
 # workspace-recover
