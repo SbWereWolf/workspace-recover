@@ -1,6 +1,6 @@
 {
   "name": "workspace-recover",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "Declarative backup and recovery runtime with clean-room recovery rehearsal.",
@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "node scripts/check.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "release:check": "node scripts/release-check.mjs --git"
   },
   "engines": {
     "node": ">=20"

@@ -67,13 +67,14 @@ workspace-recover auth google-workspace \
 $WORKSPACE_RECOVER_CONFIG_DIR/google-workspace/default/client.json
 ```
 
-Файл создаётся с правами 0600 в POSIX. На Windows доступ ограничивается ACL оператора. Исходный файл из Downloads после проверки
+Файл создаётся с правами 0600 в POSIX. На Windows оператор отдельно ограничивает доступ ACL; автоматическая настройка ACL
+инструментом не реализована и Windows-профиль не проверен. Исходный файл из Downloads после проверки
 можно удалить или перенести в операторское secret storage.
 
 ## Получение refresh token
 
 Команда `auth` поднимает временный loopback callback на `127.0.0.1`, печатает
-Google authorization URL и пытается открыть браузер. Если браузер нельзя открыть
+Google authorization URL с PKCE S256 и пытается открыть браузер. Если браузер нельзя открыть
 автоматически:
 
 ```bash
@@ -169,3 +170,15 @@ connector-assisted скачиванием не означают успешный
 - [Срок действия refresh tokens](https://developers.google.com/identity/protocols/oauth2#expiration).
 - [Классы Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes).
 - [Классы Drive scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth).
+
+## Проверка данной реализации
+
+В 0.2.3 протокольные тесты выполняют реальный код адаптера с локальными
+ответами Google API: OAuth refresh, PKCE callback, resumable Drive upload,
+чтение metadata/проверка folder, скачивание, Gmail send и чтение JSON attachments.
+Сетевые вызовы аккаунта в этих тестах не выполняются. Реальные файлы релизов
+передаются авторизованным коннектором и проверяются отдельно. Gmail API URL
+использует `/gmail/v1/`, Drive — `/drive/v3/`; собственные документы — `/v2`.
+
+[Контракт Gmail messages.get](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/get) ·
+[Загрузка в Drive](https://developers.google.com/workspace/drive/api/guides/manage-uploads).

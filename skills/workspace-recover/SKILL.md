@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 2.2.0
+version: 2.3.0
 ---
 
 # workspace-recover
@@ -111,3 +111,25 @@ lines when a declared structured reporter exists. Full view is always a path.
 The tool removes its own successful OS-temp rehearsal room, including read-only
 directories, without changing a receiver's target. Failure/warning rooms are retained.
 This cleanup is not an inferred application/test cleanup step.
+
+## Handoff-first restore and local setup
+
+Use `restore GMAIL_URL`, a local handoff, or a recovery manifest path as the
+normal entrypoint. A second Drive folder argument is not required: exact artifact
+IDs and folder boundaries come from the external manifest. An explicit
+`--manifest edited.json` is a new authorized run, not an edit to historical evidence.
+
+The local profile form ships at `templates/profile.values.example.json`; use
+`profile create NAME --values FILE`, then `restore SOURCE --profile NAME`.
+Profiles are local versioned metadata, not OAuth secret stores. Unknown versions
+or unsafe project/profile identifiers must not be guessed or converted.
+
+Read `docs/release-policy.md` before a release commit: every commit changes the
+package version, includes its version in the subject and has the matching tag.
+Run `scripts/release-check.mjs --git` only in this product's own repository; never
+create commits/tags in a parent application on its behalf. Without Git the check
+explicitly reports `gitVerified=false`.
+
+The direct Google adapter has protocol-fixture tests, not a live-account
+certificate. Gmail API v1 is an external API version and must never be changed
+when updating workspace-recover's internal document version.

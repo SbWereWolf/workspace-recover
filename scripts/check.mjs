@@ -3,10 +3,12 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { auditDistribution } from './audit.mjs';
 import { spawnSync } from 'node:child_process';
 
 // This runner belongs to this package and works without a parent repository.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const audit=await auditDistribution(root);console.log(`Distribution audit: ${audit.json} JSON, ${audit.markdown} Markdown, ${audit.links} links, ${audit.modules} isolated runtime modules`);
 const source = [];
 async function collect(directory) {
   for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {

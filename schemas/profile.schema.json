@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/profile/v2",
+  "type": "object",
+  "required": [
+    "schema"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/profile/v2"
+    },
+    "name": {
+      "type": "string"
+    },
+    "workspaceRoot": {
+      "type": "string"
+    },
+    "googleProfile": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

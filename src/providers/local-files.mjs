@@ -4,13 +4,14 @@ import fsp from 'node:fs/promises';
 import { copyFileVerified, ensureDir, pathExists, readJson, sha256File, writeJsonAtomic, writeTextAtomic } from '../core/util.mjs';
 
 export class LocalFilesProvider {
-  constructor({ root, handoffRoot = null }) {
-    this.type = 'local-files';
+  constructor({ root, handoffRoot = null, readOnly = false }) {
+    this.type = 'local-files';this.readOnly=readOnly;
     this.root = path.resolve(root);
     this.handoffRoot = path.resolve(handoffRoot || path.join(this.root, 'handoffs'));
   }
 
   async ready() {
+    if(this.readOnly)return {ready:true};
     await ensureDir(this.root);
     await ensureDir(this.handoffRoot);
     return { ready: true };

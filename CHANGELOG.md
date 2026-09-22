@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.3 — 032 Handoff-first restore
+
+- Restore with one Gmail/local handoff or recovery-manifest locator.
+- Add versioned local profiles, target inference and batch target continuation.
+- Keep explicit edited manifests and frozen credential/target selection.
+- Correct the direct Gmail API path to v1; current internal formats remain v2.
+- Exercise real provider code with local Google protocol and PKCE callback fixtures.
+- Reject unsafe locator/profile/MIME names and foreign bearer upload endpoints.
+- Ship distribution and standalone Git release checks, operator docs and skill.
+
 ## 0.2.2 — 031 Declarative actions and reporting
 
 - Compile named actions/reporters into explicit frozen workflows.

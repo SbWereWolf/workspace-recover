@@ -159,13 +159,13 @@ export async function recordInputBatch(store, session, template, rendered) {
 }
 
 export async function initializeTemplate({ presetDirectory, outputDirectory, name }) {
+  const template = assertFormat(await readJson(path.join(presetDirectory, 'template.json')), 'template');
   await fsp.mkdir(path.dirname(outputDirectory), { recursive: true });
   try { await fsp.mkdir(outputDirectory); }
   catch (error) {
     if (error.code === 'EEXIST') throw new Error(`template output already exists: ${outputDirectory}`);
     throw error;
   }
-  const template = await readJson(path.join(presetDirectory, 'template.json'));
   template.name = name;
   await writeJsonAtomic(path.join(outputDirectory, 'template.json'), template, 0o644);
   const example = {};

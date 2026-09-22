@@ -2,8 +2,10 @@
 
 Самостоятельное приложение резервирования и восстановления рабочей области.
 Папка переносится целиком: runtime-imports из родительского репозитория и соседних
-приложений отсутствуют. Это исправленная ранняя поставка 0.2.2, а не сертифицированный релиз.
-GitHub-адреса в package metadata задают целевые реквизиты продукта; публикация
+приложений отсутствуют. Это исправленная ранняя поставка 0.2.3, а не сертифицированный релиз.
+В финальной поставке локальная `.git/` фиксирует версии самостоятельного пакета;
+это не история родительского monorepo. GitHub-адреса в package metadata задают
+целевые реквизиты продукта; публикация
 репозитория этой поставкой не выполняется.
 
 Для агента: [обязательный skill](skills/workspace-recover/SKILL.md).
@@ -84,13 +86,28 @@ manifest. Манифест автоматически в payload не добав
 
 ```bash
 workspace-recover restore --handoff /backups/example/handoffs/SESSION --target /work/restored
-workspace-recover restore --handoff GMAIL_MESSAGE_URL --drive-folder DRIVE_FOLDER_URL --target /work/restored
+workspace-recover restore GMAIL_MESSAGE_URL --target /work/restored
 workspace-recover restore --manifest edited-recovery.json --target /work/restored-edited
 ```
 
 Передача `--manifest` означает осознанный запуск выбранного оператором manifest.
 Он копируется в новую сессию. Старые планы, манифесты и handoff не изменяются.
 Тесты и cleanup исполняются в объявленном порядке, без выбора за автора.
+
+## Один указатель для восстановления
+
+```bash
+workspace-recover profile create personal --values profile-values.json
+workspace-recover restore GMAIL_MESSAGE_URL --profile personal
+workspace-recover info
+```
+
+Форма локального профиля поставляется в `templates/profile.values.example.json`.
+Профиль хранит локальный workspaceRoot и имя Google credential profile. Указатель
+восстановления может быть Gmail-ссылкой, local handoff или recovery JSON-файлом.
+При наличии профиля каталог назначения вычисляется из project.name в manifest.
+Подробности: [локальные профили](docs/local-profiles.md). Выбор workflow остаётся
+за автором manifest.
 
 ## Сессия и доказательства
 
@@ -112,7 +129,7 @@ workspace-recover info SESSION --type restore --view full
 ## Границы поставки
 
 Локальные backup → handoff → restore и clean-room проверки покрыты контрактами.
-Прямой OAuth provider реализован, но end-to-end с реальным Google account в этой
+Прямой OAuth provider и PKCE callback проверены протокольными fixtures, но end-to-end с реальным Google account в этой
 поставке не проверен; облачные передачи артефактов разработки выполнены отдельным
 авторизованным connector. Наличие файлов OAuth не является проверкой доступа.
 
@@ -135,4 +152,6 @@ container/VM sandbox. Команды manifest исполняются с прав
 [Безопасность](docs/security.md) ·
 [Диагностика](docs/troubleshooting.md) ·
 [Skill агента](skills/workspace-recover/SKILL.md) ·
-[План развития](docs/implementation-plan.md)
+[План развития](docs/implementation-plan.md) ·
+[Версии и выпуск](docs/release-policy.md) ·
+[Контракт tooling](docs/declarative-tooling-contract.md)

@@ -1,0 +1,7 @@
+{
+  "schema": "workspace-recover/values/v2",
+  "values": {
+    "workspaceRoot": null,
+    "googleProfile": "default"
+  }
+}

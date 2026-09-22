@@ -7,6 +7,7 @@ import { initializeTemplate, loadTemplate, loadValues, renderTemplate, describeI
 import { startBackup, startBackupFromManifest, continueBackup } from './core/backup.mjs';
 import { startRestore, startRestoreFromManifest, continueRestore } from './core/restore.mjs';
 import { discoverProject, projectValues, startProjectInit, continueProjectInit } from './core/project.mjs';
+import { loadLocalProfile, createLocalProfile, listLocalProfiles } from './core/profiles.mjs';
 import { SessionStore } from './core/session.mjs';
 import { homeConfigDir, parseSet, pathExists, writeJsonAtomic } from './core/util.mjs';
 
@@ -80,13 +81,17 @@ Commands:
   template describe <name> --format json
   template render <template-name|template.json> [--values values.json ...] [--set key=value ...] [--set-json key=JSON ...] [--non-interactive|--interactive] --output <manifest.json>
   backup [template-name|template.json|manifest.json] [--values values.json ...] [--set key=value ...] [--set-json key=JSON ...] [--non-interactive|--interactive] [--state-dir <dir>]
-  restore (--handoff <gmail-url|local-handoff-dir> | --manifest <recovery.json>) [--target <dir>] [--google-profile <name>] [--drive-folder <id|url>] [--state-dir <dir>]
+  restore [<gmail-url|local-handoff-dir|recovery.json>] [--handoff REF | --manifest FILE] [--target <dir>] [--google-profile <name>] [--drive-folder <id|url>] [--state-dir <dir>]
   continue [session-id] [--values values.json ...] [--set key=value] [--state-dir <dir>]
   status [session-id] [--state-dir <dir>]
   next [session-id] [--state-dir <dir>]
   info [session-id] [--type <type>] [--view short|medium|full] [--state-dir <dir>]
   auth google-workspace --client <oauth-client.json> [--profile default] [--no-browser]
   auth status [--profile default]
+  auth profiles
+  profile create <name> --values FILE
+  profile show <name>
+  profile list
 `;
 }
 
@@ -185,18 +190,27 @@ async function commandBackup(args) {
 }
 
 async function commandRestore(args) {
-  if (Boolean(args.options.handoff) === Boolean(args.options.manifest)) throw new Error('restore requires exactly one of --handoff or --manifest');
-  const start = args.options.manifest ? startRestoreFromManifest : startRestore;
-  const session = await start({
-    manifestPath: args.options.manifest,
-    handoff: args.options.handoff,
-    target: args.options.target || null,
-    googleProfile: args.options.googleProfile || 'default',
-    expectedDriveFolder: args.options.driveFolder || null,
-    stateRoot: args.options.stateDir,
-  });
-  printSession(session, args.options);
-  return session.state === 'failed' ? 1 : 0;
+  if(args.positional.length>2)throw new Error('restore accepts one positional source');
+  const positional=args.positional[1];
+  if([positional,args.options.handoff,args.options.manifest].filter(Boolean).length!==1)throw new Error('restore requires exactly one positional source, --handoff or --manifest');
+  let manifestPath=args.options.manifest, handoff=args.options.handoff;
+  if(positional) {
+    if(!/^https?:/.test(positional) && !positional.startsWith('file:') && await pathExists(path.resolve(positional)) && (await fsp.stat(path.resolve(positional))).isFile()) {
+      const document=JSON.parse(await fsp.readFile(positional,'utf8'));
+      if(String(document.schema || '').startsWith('workspace-recover/recovery-manifest/'))manifestPath=positional;
+      else handoff=positional;
+    } else handoff=positional;
+  }
+  const supplied=await loadValues(args.options.values,args.options.set || [],args.options.setJson || []);
+  const unknown=Object.keys(supplied).filter(k=>k!=='target');
+  if(unknown.length)throw new Error(`unknown restore input(s): ${unknown.join(', ')}`);
+  const localProfile=await loadLocalProfile(args.options.profile || 'default',{optional:!args.options.profile});
+  const start=manifestPath?startRestoreFromManifest:startRestore;
+  let session=await start({manifestPath,handoff,target:args.options.target ?? supplied.target ?? null,
+    googleProfile:args.options.googleProfile || localProfile?.googleProfile || 'default',
+    localProfile,expectedDriveFolder:args.options.driveFolder || null,stateRoot:args.options.stateDir});
+  session=await maybeEditBatch(session,args.options);printSession(session,args.options);
+  return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
 }
 
 async function contextSession(args,store) {
@@ -214,7 +228,7 @@ async function commandContinue(args) {
     : await continueRestore(store, session, values);
   result=await maybeEditBatch(result,args.options);
   printSession(result, args.options);
-  return result.state === 'failed' ? 1 : 0;
+  return result.state === 'failed' ? 1 : result.state.startsWith('waiting_') ? 2 : 0;
 }
 
 async function commandStatus(args) {
@@ -268,6 +282,11 @@ async function commandAuth(args) {
     process.stdout.write(`Google Workspace profile authorized: ${result.profile}\nToken: ${result.tokenPath}\n`);
     return 0;
   }
+  if(action==='profiles'){
+    const root=path.join(homeConfigDir(),'google-workspace');
+    const names=await pathExists(root)?(await fsp.readdir(root,{withFileTypes:true})).filter(x=>x.isDirectory()).map(x=>x.name):[];
+    process.stdout.write(JSON.stringify(names,null,2)+'\n');return 0;
+  }
   if (action === 'status') {
     process.stdout.write(`${JSON.stringify(await googleAuthStatus(args.options.profile || 'default'), null, 2)}\n`);
     return 0;
@@ -275,10 +294,24 @@ async function commandAuth(args) {
   throw new Error('auth requires google-workspace or status');
 }
 
+async function commandProfile(args) {
+  const action=args.positional[1], name=args.positional[2];
+  if(action==='list'){process.stdout.write(JSON.stringify(await listLocalProfiles(),null,2)+'\n');return 0;}
+  if(!name)throw new Error('profile requires a name');
+  if(action==='show'){process.stdout.write(JSON.stringify(await loadLocalProfile(name),null,2)+'\n');return 0;}
+  if(action==='create') {
+    const values=await loadValues(args.options.values,args.options.set || [],args.options.setJson || []);
+    const result=await createLocalProfile(name,values);process.stdout.write(`Profile: ${result.file}\n`);return 0;
+  }
+  throw new Error('profile requires create, show or list');
+}
+
 export async function main(argv) {
   if (!argv.length || ['-h', '--help', 'help'].includes(argv[0])) { process.stdout.write(usage()); return 0; }
+  if(argv.length===1 && ['--version','version'].includes(argv[0])){process.stdout.write(JSON.parse(await fsp.readFile(path.join(APP_ROOT,'package.json'),'utf8')).version+'\n');return 0;}
   const args = parseArgs(argv);
   switch (args.positional[0]) {
+    case 'profile': return commandProfile(args);
     case 'init': return commandInit(args);
     case 'template': return commandTemplate(args);
     case 'backup': return commandBackup(args);

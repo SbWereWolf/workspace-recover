@@ -4,6 +4,8 @@ import fsp from 'node:fs/promises';
 import { assembleParts, extractTarGz } from './archive.mjs';
 import { executeWorkflow, validateWorkflow } from './workflow.mjs';
 import { handoffProviderFromReference, providerFromConfig } from './providers.mjs';
+import { targetFromProfile, validateLocalProfile } from './profiles.mjs';
+import { recordInputBatch } from './template.mjs';
 import { SessionStore, terminalState } from './session.mjs';
 import { ensureDir, nowIso, pathExists, readJson, sha256File } from './util.mjs';
 
@@ -95,15 +97,15 @@ export async function executeRecoveryManifest({
   return { workspace, archive, assembled, workflow };
 }
 
-export async function startRestore({ handoff, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null }) {
+export async function startRestore({ handoff, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('restore', { handoffReference: handoff, inputs: { target }, googleProfile, expectedDriveFolder });
+  const session = await store.create('restore', { handoffReference: handoff, inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
   return store.attempt(session, () => resolveAndRunRestore(store, session));
 }
 
-export async function startRestoreFromManifest({ manifestPath, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null }) {
+export async function startRestoreFromManifest({ manifestPath, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('restore', { manifestSource: path.resolve(manifestPath), inputs: { target }, googleProfile, expectedDriveFolder });
+  const session = await store.create('restore', { manifestSource: path.resolve(manifestPath), inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
   return store.attempt(session, async () => {
     const raw = await fsp.readFile(manifestPath);
     const recovery = JSON.parse(raw);
@@ -117,6 +119,9 @@ export async function startRestoreFromManifest({ manifestPath, target = null, go
 
 export async function continueRestore(store, session, setValues = {}) {
   if (terminalState(session.state)) return session;
+  if(session.planFrozen && Object.keys(setValues).length)throw new Error('cannot override frozen restore plan inputs; start a new session');
+  const unknown=Object.keys(setValues).filter(k=>k!=='target');
+  if(unknown.length)throw new Error(`unknown restore input(s): ${unknown.join(', ')}`);
   session.inputs = { ...(session.inputs || {}), ...setValues };
   await store.save(session);
   return store.attempt(session, () => resolveAndRunRestore(store, session));
@@ -140,6 +145,9 @@ async function resolveAndRunRestore(store, session) {
     if (await sha256File(recoveryManifestPath) !== index.recoveryManifestSha256) throw new Error('recovery manifest hash mismatch in handoff');
     assertFormat(await readJson(transportPath),'transport-manifest');
     if (await sha256File(transportPath) !== index.transportManifestSha256) throw new Error('transport manifest hash mismatch in handoff');
+    const attachedRecovery=assertFormat(await readJson(recoveryManifestPath),'recovery-manifest');
+    const attachedTransport=assertFormat(await readJson(transportPath),'transport-manifest');
+    if(JSON.stringify(attachedRecovery.transport)!==JSON.stringify(attachedTransport))throw new Error('handoff transport does not match embedded recovery transport');
     session.recoveryManifestPath = recoveryManifestPath;
     session.handoffIndexPath = indexFile;
     session.handoffId = handoff.id;
@@ -147,14 +155,14 @@ async function resolveAndRunRestore(store, session) {
   }
   const recovery = await readJson(session.recoveryManifestPath);
   if (recovery.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
-  const target = session.inputs?.target || recovery.restore?.target?.path;
-  if (!target) {
-    session.state = 'waiting_for_input';
-    session.next = { type: 'manual', action: 'provide-input', required: ['target'], command: `workspace-recover continue ${session.id} --set target=<path>` };
-    await store.save(session); return session;
+  assertRequirements(recovery.requires);assertTransport(recovery.transport);validateWorkflow(recovery.restore?.workflow || []);
+  const target = session.inputs?.target ?? recovery.restore?.target?.path ?? targetFromProfile(recovery,session.localProfile);
+  const targetSource=session.inputs?.target!=null?'operator-input':recovery.restore?.target?.path!=null?'recovery-manifest':'local-profile';
+  if (!target || typeof target!=='string' || target.includes('\0')) {
+    return recordInputBatch(store,session,{schema:'workspace-recover/template/v2',name:'restore-inputs',inputs:{target:{type:'path',required:true,description:'New destination directory'}},manifest:{}},{missing:target?[]:['target'],errors:target?[{key:'target',message:'target must be a path string'}]:[],values:{target:target || null},provenance:{}});
   }
   if (!session.planFrozen) {
-    const plan = { schema: 'workspace-recover/plan/v2', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), recoveryManifest: recovery };
+    const plan = { schema: 'workspace-recover/plan/v2', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), bindings:{target:{value:path.resolve(target),source:targetSource}}, googleProfile:session.googleProfile, expectedDriveFolder:session.expectedDriveFolder, recoveryManifest: recovery };
     session.planPath = await store.write(session.id, 'plan.json', plan);
     session.planFrozen = true;
     await store.save(session);
@@ -168,7 +176,7 @@ async function runRestorePlan(store, session, plan) {
   const sessionDir = store.directory(session.id);
   const recovery = plan.recoveryManifest;
   const providerConfig = recovery.transport.provider;
-  const provider = providerFromConfig(providerConfig, providerConfig.type === 'google-workspace' ? { profile: session.googleProfile } : {});
+  const provider = providerFromConfig(providerConfig, providerConfig.type === 'google-workspace' ? { profile: plan.googleProfile || session.googleProfile } : {readOnly:true});
   if (!await providerReadyOrWait(store, session, provider, session.googleProfile)) return session;
 
   const execution = await executeRecoveryManifest({
@@ -176,7 +184,7 @@ async function runRestorePlan(store, session, plan) {
     target: plan.target,
     sessionDir,
     provider,
-    expectedDriveFolder: session.expectedDriveFolder,
+    expectedDriveFolder: plan.expectedDriveFolder || session.expectedDriveFolder,
     operation: 'restore',
   });
   const { workspace, assembled, workflow } = execution;

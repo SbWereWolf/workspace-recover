@@ -49,13 +49,16 @@ Breaking release. Только один текущий формат каждог
 
 ## 031 — Declarative Actions / Reporting — 0.2.2
 
-Статус: реализовано; текущая проверка и доставка отражаются во внешнем receipt.
+Статус: завершено; 76/76 тестов от root и непривилегированного UID,
+проверенная копия 031 и handoff rebranding.
 
 - Именованные actions и компактный workflow.
 - Reporter registry; `medium` определяется доменом, `full` всегда только путь.
 - Строгая проверка версии всех templates/configs/manifests/plans/receipts.
 
-## 032 — Handoff-first Restore
+## 032 — Handoff-first Restore — 0.2.3
+
+Статус: реализация завершена; итоговые тесты и внешняя доставка фиксируются receipt.
 
 - `workspace-recover restore GMAIL_HANDOFF` как основной путь.
 - Handoff сам разрешает recovery manifest и provider artifacts.
@@ -69,3 +72,14 @@ Breaking release. Только один текущий формат каждог
 версии инструмента. При переносе в отдельный Git-репозиторий каждый release commit
 обязан менять версию приложения, а release commit помечается соответствующим
 version tag.
+
+## Итоговые границы
+
+P0, 029, 030, 031 и 032 реализованы. Контрактный набор запускается обычным
+пользователем и от root, затем из повторно скачанной поставки через общий
+recovery executor. Итоговый receipt с точными числами прикладывается к handoff.
+Прямой live Google OAuth account, другие ОС и exactly-once после произвольного
+kill процесса не объявляются проверенными. Native Google protocol fixtures не
+выдаются за реальный доступ к аккаунту. Локальная история самостоятельного пакета формируется из проверенных выпусков
+с version tags; её фактический результат записывается в release receipt.
+Родительский репозиторий Stoneweave и его история не изменяются; push не выполняется.

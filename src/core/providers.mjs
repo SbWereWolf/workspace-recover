@@ -12,5 +12,6 @@ export function handoffProviderFromReference(reference, { googleProfile = 'defau
   if (/^https:\/\/mail\.google\.com\//.test(reference) || /^[0-9a-f]{12,}$/i.test(reference)) {
     return new GoogleWorkspaceProvider({ profile: googleProfile });
   }
-  return new LocalFilesProvider({ root: '.', handoffRoot: '.' });
+  if(/^https?:/.test(reference))throw new Error('unsupported handoff URL host/protocol');
+  return new LocalFilesProvider({ root: '.', handoffRoot: '.', readOnly:true });
 }
