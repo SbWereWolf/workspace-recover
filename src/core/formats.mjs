@@ -8,7 +8,7 @@ export function assertFormat(document, kind) {
   return document;
 }
 
-export const FEATURES = new Set(['advisory-workflow','saved-reports','named-actions','batch-inputs','google-workspace','local-files','tar-gzip']);
+export const FEATURES = new Set(['advisory-workflow','saved-reports','named-actions','batch-inputs','google-workspace','local-files','tar-gzip','pax-paths','safe-merge']);
 export function assertRequirements(requires) {
   if (requires===undefined)return;
   if (!requires || typeof requires!=='object' || Array.isArray(requires))throw new Error('requires must be an object');

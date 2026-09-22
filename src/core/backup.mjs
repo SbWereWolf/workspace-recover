@@ -179,7 +179,7 @@ async function runBackupPlan(store, session, plan) {
     backupSessionId: session.id,
     createdAt: nowIso(),
     transport,
-    requires: manifest.requires,
+    requires: {formatVersion:2, features:[...new Set([...(manifest.requires?.features || []),'pax-paths','safe-merge'])]},
     project: {name:manifest.name || 'workspace'},
     restore: {
       existingTarget: manifest.restore.existingTarget || 'reject',

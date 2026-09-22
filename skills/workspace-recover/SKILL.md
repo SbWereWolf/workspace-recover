@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 2.3.0
+version: 2.4.0
 ---
 
 # workspace-recover
@@ -133,3 +133,22 @@ explicitly reports `gitVerified=false`.
 The direct Google adapter has protocol-fixture tests, not a live-account
 certificate. Gmail API v1 is an external API version and must never be changed
 when updating workspace-recover's internal document version.
+
+
+## Archive boundary contract (0.2.4)
+
+WR-028-01/02 fixes are covered by archive-boundary tests. Preserve full paths:
+never exclude required source paths or truncate names to fit ustar. Generated
+recovery manifests declare pax-paths/safe-merge; do not remove those capabilities
+just to use an older binary. They are format features, not document migration.
+
+Merge must never follow a pre-existing destination symlink (including root and
+ancestors). Use an exclusive, real destination path. Regular-file replacement
+must not change outside hardlink aliases. Do not claim protection against a
+hostile process that can concurrently rename whole open directory trees.
+
+Linux uses /proc/self/fd directory anchors. OS-temp rooms are not security
+sandboxes. Do not alter the author's test/cleanup workflow to hide an archive
+failure. A failed restore preserves partial target data; a failed/warning
+rehearsal preserves its room. Full ERP acceptance is separate from the synthetic
+exact-path reproducer and GNU tar interoperability evidence.

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.4 — 033 Archive boundaries and PAX
+
+- Fix WR-028-01: lossless long UTF-8 names and link targets with POSIX PAX.
+- Fix WR-028-02: refuse existing destination symlinks in the root, parents and
+  leaves; anchor Linux writes to directory descriptors, replace regular leaves
+  atomically without truncating external hardlink aliases.
+- Strict TAR/PAX lengths, numeric fields, duplicate paths and end markers;
+  private random extraction spool, source/output overlap and source-change checks.
+- Short writes and stream errors are handled by complete-write loops/pipeline.
+- Clean-room cleanup uses descriptor-based chmod; mode-0000 directories can be
+  removed by their unprivileged owner without following swapped symlinks.
+- Keep advisory workflow and user cleanup semantics unchanged. Current JSON v2
+  remains current; generated manifests require pax-paths and safe-merge features.
+- Add 32 regressions; all 129 tests pass as root and unprivileged. Independent
+  GNU tar interoperability checks compare 44 entries by content, links and modes.
+
 ## 0.2.3 — 032 Handoff-first restore
 
 - Restore with one Gmail/local handoff or recovery-manifest locator.

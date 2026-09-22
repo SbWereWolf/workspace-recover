@@ -3,55 +3,11 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import zlib from 'node:zlib';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { ensureDir, pathExists, sha256File } from './util.mjs';
-
-function octal(value, length) {
-  const text = Math.max(0, value).toString(8).padStart(length - 1, '0');
-  return Buffer.from(`${text}\0`);
-}
-
-function writeField(header, offset, length, value) {
-  const bytes = Buffer.from(value);
-  if (bytes.length > length) throw new Error(`tar field too long: ${value}`);
-  bytes.copy(header, offset);
-}
-
-function splitTarPath(name) {
-  const bytes = Buffer.byteLength(name);
-  if (bytes <= 100) return { name, prefix: '' };
-  const parts = name.split('/');
-  for (let i = 1; i < parts.length; i += 1) {
-    const prefix = parts.slice(0, i).join('/');
-    const leaf = parts.slice(i).join('/');
-    if (Buffer.byteLength(prefix) <= 155 && Buffer.byteLength(leaf) <= 100) return { name: leaf, prefix };
-  }
-  throw new Error(`path too long for ustar: ${name}`);
-}
-
-function tarHeader(entry) {
-  const header = Buffer.alloc(512, 0);
-  const split = splitTarPath(entry.name);
-  writeField(header, 0, 100, split.name);
-  octal(entry.mode & 0o7777, 8).copy(header, 100);
-  octal(0, 8).copy(header, 108);
-  octal(0, 8).copy(header, 116);
-  octal(entry.size, 12).copy(header, 124);
-  octal(Math.floor(entry.mtimeMs / 1000), 12).copy(header, 136);
-  Buffer.from('        ').copy(header, 148);
-  writeField(header, 156, 1, entry.type);
-  if (entry.linkname) writeField(header, 157, 100, entry.linkname);
-  writeField(header, 257, 6, 'ustar\0');
-  writeField(header, 263, 2, '00');
-  writeField(header, 265, 32, 'workspace-recover');
-  writeField(header, 297, 32, 'workspace-recover');
-  if (split.prefix) writeField(header, 345, 155, split.prefix);
-  let sum = 0;
-  for (const byte of header) sum += byte;
-  const checksum = sum.toString(8).padStart(6, '0');
-  Buffer.from(`${checksum}\0 `).copy(header, 148);
-  return header;
-}
+import { ensureDir, sha256File } from './util.mjs';
+import { entryHeaders, tarEntries, padding } from './tar-format.mjs';
+import { TargetTree } from './target-tree.mjs';
 
 function globToRegex(pattern) {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '§§').replace(/\*/g, '[^/]*').replace(/§§/g, '.*').replace(/\?/g, '.');
@@ -67,16 +23,18 @@ async function walk(root, excludes) {
   async function visit(absolute, relative) {
     if (relative && excluded(relative, excludes)) return;
     const stat = await fsp.lstat(absolute);
+    const identity = {dev:stat.dev,ino:stat.ino,size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs};
     const posix = relative.split(path.sep).join('/');
     if (stat.isDirectory()) {
-      entries.push({ absolute, name: relative ? `${posix}/` : './', type: '5', mode: stat.mode, size: 0, mtimeMs: stat.mtimeMs });
-      const names = (await fsp.readdir(absolute)).sort();
+      entries.push({ identity, absolute, name: relative ? `${posix}/` : './', type: '5', mode: stat.mode, size: 0, mtimeMs: stat.mtimeMs });
+      const decoder = new TextDecoder('utf-8', {fatal:true});
+      const names = (await fsp.readdir(absolute, {encoding:'buffer'})).map(b=>decoder.decode(b)).sort();
       for (const name of names) await visit(path.join(absolute, name), relative ? path.join(relative, name) : name);
     } else if (stat.isFile()) {
-      entries.push({ absolute, name: posix, type: '0', mode: stat.mode, size: stat.size, mtimeMs: stat.mtimeMs });
+      entries.push({ identity, absolute, name: posix, type: '0', mode: stat.mode, size: stat.size, mtimeMs: stat.mtimeMs });
     } else if (stat.isSymbolicLink()) {
       const linkname = await fsp.readlink(absolute);
-      entries.push({ absolute, name: posix, type: '2', mode: stat.mode, size: 0, mtimeMs: stat.mtimeMs, linkname });
+      entries.push({ identity, absolute, name: posix, type: '2', mode: stat.mode, size: 0, mtimeMs: stat.mtimeMs, linkname });
     } else {
       throw new Error(`unsupported filesystem entry: ${absolute}`);
     }
@@ -85,143 +43,60 @@ async function walk(root, excludes) {
   return entries;
 }
 
-async function writeChunk(stream, chunk) {
-  if (!stream.write(chunk)) await new Promise(resolve => stream.once('drain', resolve));
-}
 
-export async function createTarGz({ source, output, excludes = [] }) {
-  const sourceRoot = path.resolve(source);
-  const entries = await walk(sourceRoot, excludes);
-  await ensureDir(path.dirname(output));
-  const gzip = zlib.createGzip({ level: 9 });
-  const sink = fs.createWriteStream(output, { mode: 0o600 });
-  const pipePromise = pipeline(gzip, sink);
+function sameFile(a,b) { return ['dev','ino','size','mtimeMs','ctimeMs'].every(k=>a[k]===b[k]); }
+async function* archiveChunks(entries) {
+  let index=0;
   for (const entry of entries) {
-    await writeChunk(gzip, tarHeader(entry));
-    if (entry.type === '0') {
-      for await (const chunk of fs.createReadStream(entry.absolute)) await writeChunk(gzip, chunk);
-      const padding = (512 - (entry.size % 512)) % 512;
-      if (padding) await writeChunk(gzip, Buffer.alloc(padding));
-    }
-  }
-  await writeChunk(gzip, Buffer.alloc(1024));
-  gzip.end();
-  await pipePromise;
-  const stat = await fsp.stat(output);
-  return { output, bytes: stat.size, sha256: await sha256File(output), entries: entries.map(e => e.name) };
-}
-
-function parseString(buffer, start, length) {
-  return buffer.subarray(start, start + length).toString('utf8').replace(/\0.*$/s, '');
-}
-
-function parseOctal(buffer, start, length) {
-  const text = parseString(buffer, start, length).trim();
-  return text ? Number.parseInt(text, 8) : 0;
-}
-
-function safeTarget(root, name) {
-  if (!name || name.startsWith('/') || /^[A-Za-z]:[\\/]/.test(name)) throw new Error(`unsafe archive path: ${name}`);
-  const normalized = path.posix.normalize(name);
-  if (normalized === '..' || normalized.startsWith('../')) throw new Error(`unsafe archive path: ${name}`);
-  const target = path.resolve(root, ...normalized.split('/'));
-  const base = path.resolve(root);
-  if (target !== base && !target.startsWith(`${base}${path.sep}`)) throw new Error(`archive path escapes target: ${name}`);
-  return target;
-}
-
-export async function extractTarGz({ archive, destination, rejectExisting = true }) {
-  if (rejectExisting && await pathExists(destination)) throw new Error(`restore target already exists: ${destination}`);
-  await ensureDir(destination);
-  const tempTar = path.join(os.tmpdir(), `workspace-recover-${process.pid}-${Date.now()}.tar`);
-  const directoryModes = new Map();
-  const applyDirectoryModes = async ({ bestEffort = false } = {}) => {
-    if (process.platform === 'win32') return;
-    const ordered = [...directoryModes.entries()].sort(([a], [b]) => b.split(path.sep).length - a.split(path.sep).length);
-    for (const [target, mode] of ordered) {
-      try {
-        await fsp.chmod(target, mode);
-      } catch (error) {
-        if (!bestEffort) throw error;
-      }
-    }
-  };
-  try {
-    await pipeline(fs.createReadStream(archive), zlib.createGunzip(), fs.createWriteStream(tempTar, { mode: 0o600 }));
-    const handle = await fsp.open(tempTar, 'r');
+    for (const h of entryHeaders(entry,index++)) yield h;
+    if (entry.type !== '0') continue;
+    const input = await fsp.open(entry.absolute,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
     try {
-      let offset = 0;
-      const header = Buffer.alloc(512);
-      while (true) {
-        const read = await handle.read(header, 0, 512, offset);
-        if (read.bytesRead === 0) break;
-        if (read.bytesRead !== 512) throw new Error('truncated tar header');
-        offset += 512;
-        if (header.every(byte => byte === 0)) break;
-        const storedChecksum = parseOctal(header, 148, 8);
-        const checksumHeader = Buffer.from(header);
-        Buffer.from('        ').copy(checksumHeader, 148);
-        let computedChecksum = 0;
-        for (const byte of checksumHeader) computedChecksum += byte;
-        if (storedChecksum !== computedChecksum) throw new Error('invalid tar header checksum');
-        const name = parseString(header, 0, 100);
-        const prefix = parseString(header, 345, 155);
-        const fullName = prefix ? `${prefix}/${name}` : name;
-        const type = parseString(header, 156, 1) || '0';
-        const size = parseOctal(header, 124, 12);
-        const mode = parseOctal(header, 100, 8) & 0o7777;
-        const target = safeTarget(destination, fullName.replace(/\/$/, ''));
-        if (type === '5') {
-          await ensureDir(target);
-          directoryModes.set(target, mode);
-          // Keep directories owner-writable/searchable while extracting children.
-          // Final source modes are applied deepest-first after the whole archive is materialized.
-          if (process.platform !== 'win32') await fsp.chmod(target, mode | 0o700);
-        } else if (type === '2') {
-          const linkname = parseString(header, 157, 100);
-          if (!linkname || path.isAbsolute(linkname)) throw new Error(`unsafe symlink target for ${fullName}: ${linkname}`);
-          const resolved = path.resolve(path.dirname(target), linkname);
-          const base = path.resolve(destination);
-          if (resolved !== base && !resolved.startsWith(`${base}${path.sep}`)) throw new Error(`symlink escapes target: ${fullName} -> ${linkname}`);
-          await ensureDir(path.dirname(target));
-          await fsp.symlink(linkname, target);
-        } else if (type === '0' || type === '\0') {
-          await ensureDir(path.dirname(target));
-          const out = await fsp.open(target, 'w', mode);
-          try {
-            let remaining = size;
-            let position = offset;
-            const buffer = Buffer.alloc(Math.min(1024 * 1024, Math.max(1, size)));
-            while (remaining > 0) {
-              const length = Math.min(buffer.length, remaining);
-              const part = await handle.read(buffer, 0, length, position);
-              if (part.bytesRead <= 0) throw new Error(`truncated file data: ${fullName}`);
-              await out.write(buffer, 0, part.bytesRead, null);
-              position += part.bytesRead;
-              remaining -= part.bytesRead;
-            }
-          } finally {
-            await out.close();
-          }
-          if (process.platform !== 'win32') await fsp.chmod(target, mode);
-        } else {
-          throw new Error(`unsupported tar entry type ${type} for ${fullName}`);
-        }
-        const padded = Math.ceil(size / 512) * 512;
-        offset += padded;
-      }
-    } finally {
-      await handle.close();
-    }
-    await applyDirectoryModes();
-  } catch (error) {
-    // Preserve partial evidence and best-effort restore every directory mode already observed.
-    // Never erase or silently relax a workspace because extraction failed.
-    await applyDirectoryModes({ bestEffort: true });
-    throw error;
-  } finally {
-    await fsp.rm(tempTar, { force: true });
+      if(!sameFile(entry.identity,await input.stat()))throw new Error(`source changed during backup: ${entry.name}`);
+      let remaining=entry.size,position=0;
+      while(remaining){const buf=Buffer.alloc(Math.min(1024*1024,remaining));const {bytesRead}=await input.read(buf,0,buf.length,position);if(!bytesRead)throw new Error(`source shrank during backup: ${entry.name}`);remaining-=bytesRead;position+=bytesRead;yield buf.subarray(0,bytesRead);}
+      if(!sameFile(entry.identity,await input.stat()))throw new Error(`source changed during backup: ${entry.name}`);
+      if(padding(entry.size))yield Buffer.alloc(padding(entry.size));
+    } finally {await input.close();}
   }
+  for(const entry of entries) {
+    const current=await fsp.lstat(entry.absolute);
+    if(!sameFile(entry.identity,current))throw new Error(`source changed during backup: ${entry.name}`);
+  }
+  yield Buffer.alloc(1024);
+}
+export async function createTarGz({ source, output, excludes = [] }) {
+  const sourceRoot=await fsp.realpath(source);
+  // Disallow in-source output even through an existing symlinked output parent.
+  let parent=path.dirname(path.resolve(output)),missing=[];
+  while(true){try{parent=path.join(await fsp.realpath(parent),...missing);break;}catch(e){if(e.code!=='ENOENT')throw e;missing.unshift(path.basename(parent));parent=path.dirname(parent);}}
+  const actualOutput=path.join(parent,path.basename(output));
+  if(actualOutput===sourceRoot || actualOutput.startsWith(sourceRoot+path.sep))throw new Error('backup output must be outside source');
+  const entries=await walk(sourceRoot,excludes);
+  await ensureDir(path.dirname(output));
+  // Pipeline owns errors from source iteration, compression and destination.
+  // Exclusive output creation never truncates a pre-existing alias/inode.
+  await pipeline(Readable.from(archiveChunks(entries)),zlib.createGzip({level:9}),fs.createWriteStream(output,{flags:'wx',mode:0o600}));
+  const stat=await fsp.stat(output);
+  return {output,bytes:stat.size,sha256:await sha256File(output),entries:entries.map(e=>e.name)};
+}
+export async function extractTarGz({ archive, destination, rejectExisting = true }) {
+  const tree=await TargetTree.open(destination,rejectExisting);
+  // Private random spool, not a predictable file directly in the shared tmpdir.
+  let temp,handle;
+  try {
+    temp=await fsp.mkdtemp(path.join(os.tmpdir(),'workspace-recover-tar-'));
+    const spool=path.join(temp,'payload.tar');
+    await pipeline(fs.createReadStream(archive),zlib.createGunzip(),fs.createWriteStream(spool,{flags:'wx',mode:0o600}));
+    handle=await fsp.open(spool,'r');
+    for await(const entry of tarEntries(handle)) {
+      if(entry.type==='5')await tree.directoryEntry(entry);
+      else if(entry.type==='2')await tree.symlinkEntry(entry);
+      else await tree.fileEntry(entry,handle);
+    }
+    await tree.finish();
+  } catch(error){await tree.finish(true);throw error;}
+  finally{if(handle)await handle.close();await tree.close();if(temp)await fsp.rm(temp,{recursive:true,force:true});}
   return destination;
 }
 
@@ -246,7 +121,12 @@ export async function splitFile({ file, outputDirectory, maxPartBytes = 64 * 102
           const length = Math.min(buffer.length, remaining);
           const read = await handle.read(buffer, 0, length, position);
           if (read.bytesRead <= 0) throw new Error('unexpected EOF while splitting archive');
-          await out.write(buffer, 0, read.bytesRead, null);
+          let written = 0;
+          while (written < read.bytesRead) {
+            const part = await out.write(buffer, written, read.bytesRead-written, null);
+            if (!part.bytesWritten) throw new Error('zero-byte write while splitting');
+            written += part.bytesWritten;
+          }
           position += read.bytesRead;
           remaining -= read.bytesRead;
         }
@@ -264,18 +144,20 @@ export async function splitFile({ file, outputDirectory, maxPartBytes = 64 * 102
 
 export async function assembleParts({ parts, output }) {
   await ensureDir(path.dirname(output));
-  const sink = fs.createWriteStream(output, { mode: 0o600 });
-  try {
-    for (const part of [...parts].sort((a, b) => a.index - b.index)) {
-      const stat = await fsp.stat(part.path);
-      if (part.bytes !== undefined && stat.size !== part.bytes) throw new Error(`part size mismatch: ${part.fileName}`);
-      if (part.sha256 && await sha256File(part.path) !== part.sha256) throw new Error(`part sha256 mismatch: ${part.fileName}`);
-      for await (const chunk of fs.createReadStream(part.path)) await writeChunk(sink, chunk);
+  async function* verifiedChunks() {
+    for (const part of [...parts].sort((a,b)=>a.index-b.index)) {
+      if(path.resolve(part.path)===path.resolve(output))throw new Error('assembled archive must not overwrite an input part');
+      const stat=await fsp.stat(part.path);
+      if(part.bytes!==undefined && stat.size!==part.bytes)throw new Error(`part size mismatch: ${part.fileName}`);
+      if(part.sha256 && await sha256File(part.path)!==part.sha256)throw new Error(`part sha256 mismatch: ${part.fileName}`);
+      yield* fs.createReadStream(part.path);
     }
-  } finally {
-    sink.end();
-    await new Promise((resolve, reject) => { sink.on('close', resolve); sink.on('error', reject); });
   }
-  const stat = await fsp.stat(output);
-  return { output, bytes: stat.size, sha256: await sha256File(output) };
+  const spool=await fsp.mkdtemp(path.join(path.dirname(output),'.wr-assembly-'));
+  try {
+    const candidate=path.join(spool,'archive');
+    await pipeline(Readable.from(verifiedChunks()),fs.createWriteStream(candidate,{flags:'wx',mode:0o600}));
+    await fsp.rename(candidate,output);
+  } finally {await fsp.rm(spool,{recursive:true,force:true});}
+  const stat=await fsp.stat(output);return {output,bytes:stat.size,sha256:await sha256File(output)};
 }

@@ -1,4 +1,5 @@
 import os from 'node:os';
+import fs from 'node:fs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 
@@ -16,9 +17,18 @@ export async function removeCleanRoom(root) {
   async function prepare(directory) {
     const stat=await fsp.lstat(directory);
     if(!stat.isDirectory() || stat.isSymbolicLink())return;
-    // Deletion needs parent write/search. Do not follow links or mutate link targets.
-    await fsp.chmod(directory,(stat.mode & 0o7777) | 0o700);
-    for(const entry of await fsp.readdir(directory,{withFileTypes:true}))if(entry.isDirectory())await prepare(path.join(directory,entry.name));
+    // Linux O_PATH pins even a mode-0000 directory without opening its contents.
+    const flags=(process.platform==='linux' ? 0x200000 : fs.constants.O_RDONLY) | (fs.constants.O_DIRECTORY || 0) | (fs.constants.O_NOFOLLOW || 0);
+    const handle=await fsp.open(directory,flags);
+    try {
+      const held=await handle.stat();
+      if(!held.isDirectory() || held.dev!==stat.dev || held.ino!==stat.ino)throw new Error('clean-room directory changed during cleanup');
+      // Descriptor chmod cannot be redirected through a swapped symlink.
+      const anchor=process.platform==='linux' ? `/proc/self/fd/${handle.fd}` : directory;
+      if(process.platform==='linux')await fsp.chmod(anchor,(held.mode & 0o7777) | 0o700);
+      else await handle.chmod((held.mode & 0o7777) | 0o700);
+      for(const entry of await fsp.readdir(anchor,{withFileTypes:true}))if(entry.isDirectory())await prepare(path.join(anchor,entry.name));
+    } finally {await handle.close();}
   }
   await prepare(root);await fsp.rm(root,{recursive:true,force:true});
 }
