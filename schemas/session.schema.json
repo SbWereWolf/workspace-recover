@@ -16,7 +16,8 @@
     "operation": {
       "enum": [
         "backup",
-        "restore"
+        "restore",
+        "init"
       ]
     },
     "state": {

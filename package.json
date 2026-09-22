@@ -1,6 +1,6 @@
 {
   "name": "workspace-recover",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "description": "Declarative backup and recovery runtime with clean-room recovery rehearsal.",
@@ -41,6 +41,7 @@
     "tests/",
     "AGENTS.md",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "Прочти.Меня.md"
   ]
 }

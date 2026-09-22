@@ -75,7 +75,7 @@ test('failed clean-room extraction is preserved and recorded rather than deleted
 
 test('unsafe transport filenames are rejected before any provider call',async t=>{
  const f=await fixture(t);let calls=0;
- const recovery={schema:'workspace-recover/recovery-manifest/v2',transport:{provider:{type:'local-files'},archive:{fileName:'backup.tar.gz'},parts:[{index:0,fileName:'../../escape',bytes:1,sha256:'0'.repeat(64),remote:{id:'unknown'}}]},restore:{existingTarget:'reject',workflow:[]}};
+ const recovery={schema:'workspace-recover/recovery-manifest/v2',transport:{schema:'workspace-recover/transport-manifest/v2',provider:{type:'local-files'},archive:{fileName:'backup.tar.gz'},parts:[{index:0,fileName:'../../escape',bytes:1,sha256:'0'.repeat(64),remote:{id:'unknown'}}]},restore:{existingTarget:'reject',workflow:[]}};
  await assert.rejects(()=>executeRecoveryManifest({recovery,target:path.join(f.root,'restored'),sessionDir:path.join(f.root,'run'),provider:{async download(){calls++;}}}),/unsafe.*file/i);
  assert.equal(calls,0);
 });

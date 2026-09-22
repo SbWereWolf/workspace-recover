@@ -17,7 +17,40 @@
       "minLength": 1
     },
     "inputs": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "array",
+              "object",
+              "path",
+              "email",
+              "url",
+              "enum",
+              "google-drive-folder"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "default": {},
+          "enum": {
+            "type": "array"
+          },
+          "deriveFrom": {
+            "type": "string"
+          }
+        }
+      }
     },
     "manifest": {
       "type": "object"

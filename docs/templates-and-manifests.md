@@ -56,7 +56,8 @@ manifest/template.
 
 ## Типы входов и отложенные значения
 
-`inputs.<name>.type` допускает string, number, integer, boolean, array, object.
+`inputs.<name>.type` допускает string, number, integer, boolean, array, object,
+path, email, url, enum и google-drive-folder.
 Несоответствие — ошибка с именем input; строка не превращается молча в число.
 `--set` распознаёт числа, boolean и null, поэтому `--set partSizeBytes=67108864` передаёт
 число. Массивы и объекты передаются в JSON-файле `--values`. Неизвестные значения не подставляются автоматически.
@@ -84,3 +85,37 @@ workspace-recover restore --manifest edited-recovery.json --target /work/new-tar
 байтам. Осознанно изменённый manifest передаётся непосредственно, старый handoff
 остаётся воспроизводимым. Совпадение SHA256 доказывает целостность, но не авторство
 или безопасность произвольных команд manifest.
+
+## Именованные действия
+
+Следующий фрагмент добавляется в author manifest текущего формата
+`workspace-recover/manifest/v2`:
+
+```json
+{
+  "actions": {
+    "tests": {
+      "type": "verification",
+      "exec": ["node", "scripts/check.mjs"],
+      "report": "test-results"
+    },
+    "cleanup": {
+      "type": "command",
+      "when": "always",
+      "exec": ["node", "scripts/cleanup.mjs"]
+    }
+  },
+  "reporters": {"test-results": {"profile": "tap"}},
+  "restore": {"workflow": ["tests", "cleanup"]}
+}
+```
+
+Имена — удобство автора. В зафиксированный plan и внешний recovery manifest
+попадает развёрнутый workflow с конкретными `id`, `argv` и `report`. Повторное
+использование action допускается с отдельным ID: `{"action":"tests","id":"tests-again"}`.
+Объявление неизвестного action/reporter или одинакового ID — ошибка до исполнения.
+`exec` — тот же массив аргументов без shell, не язык командной строки.
+
+`requires.formatVersion` допускает только `2`; `requires.features` проверяет
+возможности исполнителя. Другие версии форматов не читаются. Изменение исходного
+manifest не инвалидирует уже зафиксированный plan.

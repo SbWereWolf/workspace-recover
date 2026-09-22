@@ -16,7 +16,7 @@
       "type": "string"
     },
     "transport": {
-      "type": "object"
+      "$ref": "transport-manifest.schema.json"
     },
     "restore": {
       "type": "object",
@@ -28,6 +28,9 @@
           "type": "object"
         }
       }
+    },
+    "requires": {
+      "$ref": "requirements.schema.json"
     }
   },
   "additionalProperties": true

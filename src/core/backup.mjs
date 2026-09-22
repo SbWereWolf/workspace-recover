@@ -1,3 +1,6 @@
+import { compileManifest } from './declaration.mjs';
+import { assertFormat } from './formats.mjs';
+import { createCleanRoom, removeCleanRoom } from './clean-room.mjs';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,6 +28,7 @@ function nextInput(sessionId, missing) {
 
 
 async function freezePlan(store, session, manifest) {
+  manifest=compileManifest(manifest);
   manifestValidate(manifest);
   const manifestPath = await store.write(session.id, 'manifest.json', manifest);
   const manifestText = await fsp.readFile(manifestPath, 'utf8');
@@ -93,7 +97,7 @@ export async function continueBackup(store, session, setValues = {}) {
   return store.attempt(session, async () => {
     // Frozen plans are independent of mutable author files and generators.
     if (session.planFrozen && Object.keys(setValues).length) throw new Error('frozen plan cannot be overwritten; start a new session');
-    if (session.planFrozen) return runBackupPlan(store, session, await readJson(session.planPath));
+    if (session.planFrozen) return runBackupPlan(store, session, assertFormat(await readJson(session.planPath),'plan'));
     const template = await readJson(path.join(store.directory(session.id), 'template.json'));
     const priorDocument = await readJson(path.join(store.directory(session.id), 'values.json'));
     if (priorDocument.schema !== 'workspace-recover/values/v2') throw new Error('unsupported values schema');
@@ -175,6 +179,8 @@ async function runBackupPlan(store, session, plan) {
     backupSessionId: session.id,
     createdAt: nowIso(),
     transport,
+    requires: manifest.requires,
+    project: {name:manifest.name || 'workspace'},
     restore: {
       existingTarget: manifest.restore.existingTarget || 'reject',
       target: manifest.restore.target || { required: true },
@@ -183,7 +189,7 @@ async function runBackupPlan(store, session, plan) {
   };
   const recoveryManifestPath = await store.write(session.id, 'workspace-recovery-manifest.json', recoveryManifest);
 
-  const cleanRoot = path.join(os.tmpdir(), `workspace-recover-clean-room-${session.id}-${crypto.randomBytes(4).toString('hex')}`);
+  const cleanRoot = await createCleanRoom(session.id);
   const cleanWorkspace = path.join(cleanRoot, 'workspace');
   session.progress.rehearsal = { cleanRoom: cleanRoot, workspace: cleanWorkspace, state: 'running' };
   await store.save(session);
@@ -220,7 +226,7 @@ async function runBackupPlan(store, session, plan) {
     completedAt: nowIso(),
   };
   if (rehearsalClean) {
-    await fsp.rm(cleanRoot, { recursive: true, force: true });
+    await removeCleanRoom(cleanRoot);
     rehearsalReceipt.cleanRoom = null;
   }
   session.progress.rehearsal.state = rehearsalClean ? 'completed' : 'completed_with_warnings';

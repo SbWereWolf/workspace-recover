@@ -129,6 +129,8 @@ export async function renderTemplate(template, suppliedValues = {}, suppliedProv
   }
   // Workspace/step locations are late-bound by the executor, never by the operator.
   const authorManifest=structuredClone(template.manifest);
+  const declarations={actions:authorManifest.actions,reporters:authorManifest.reporters};
+  delete authorManifest.actions;delete authorManifest.reporters;
   const workflow=authorManifest.restore?.workflow;
   if (workflow!==undefined) delete authorManifest.restore.workflow;
   const rendered=renderValue(authorManifest,values,{allowMissing:true});
@@ -136,6 +138,7 @@ export async function renderTemplate(template, suppliedValues = {}, suppliedProv
     const runtime=renderValue(workflow,values,{allowMissing:true,deferred:['workspace','stepDir','operation']});
     rendered.value.restore.workflow=runtime.value;rendered.missing.push(...runtime.missing);
   }
+  for(const [k,v] of Object.entries(declarations))if(v!==undefined){const late=renderValue(v,values,{allowMissing:true,deferred:['workspace','stepDir','operation']});rendered.value[k]=late.value;rendered.missing.push(...late.missing);}
   const missing=[...new Set([...requiredMissing,...rendered.missing])].sort();
   return {manifest:rendered.value,values,missing,errors,provenance};
 }

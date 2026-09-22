@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/requirements/v2",
+  "type": "object",
+  "required": [
+    "formatVersion"
+  ],
+  "properties": {
+    "formatVersion": {
+      "const": 2
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 2.1.0
+version: 2.2.0
 ---
 
 # workspace-recover
@@ -98,3 +98,16 @@ machine paths in ignored `values.local.json`, not `project.json`. It never
 replaces existing author configuration. `info`, `next`, and `continue` without
 an ID use the nearest project's current session. Always keep the emitted ID for
 cross-directory or multi-project work; there is no global "latest session" guess.
+
+## Named actions and saved reports
+
+Author manifests may define named actions/reporters and list action references in
+workflow order. The compiler freezes explicit argv/report specifications; receivers
+do not need the author's registry. Reject unsupported document versions/features
+before execution, never downgrade to an older format. Reporter profiles are listed
+in `docs/reporting-and-sessions.md`. Do not select reports by reading arbitrary tail
+lines when a declared structured reporter exists. Full view is always a path.
+
+The tool removes its own successful OS-temp rehearsal room, including read-only
+directories, without changing a receiver's target. Failure/warning rooms are retained.
+This cleanup is not an inferred application/test cleanup step.

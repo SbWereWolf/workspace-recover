@@ -31,15 +31,47 @@ function commandOutputMedium(result) {
   ].join('\n');
 }
 
+export const REPORTER_PROFILES = Object.freeze(['command-output','json','json-lines','junit','tap','artifact-list','custom-command']);
+export function validateReporter(report) {
+  if(!report || typeof report!=='object' || Array.isArray(report) || !REPORTER_PROFILES.includes(report.profile || 'command-output'))throw new Error(`unsupported report profile: ${report?.profile}`);
+  if(['json','json-lines','junit'].includes(report.profile) && typeof report.source!=='string')throw new Error('report source is required');
+  if(report.profile==='artifact-list' && (!Array.isArray(report.sources) || report.sources.some(x=>typeof x!=='string')))throw new Error('artifact-list sources must be paths');
+  if(report.profile==='custom-command' && (!Array.isArray(report.argv) || !report.argv.length || report.argv.some(x=>typeof x!=='string' || x.includes('\0'))))throw new Error('custom reporter requires argv');
+  if(report.timeoutMs!==undefined && (!Number.isSafeInteger(report.timeoutMs) || report.timeoutMs<=0))throw new Error('report timeout must be positive');
+}
+
 function junitSummary(xml) {
-  const attrs = {};
-  const root = xml.match(/<testsuites?\b([^>]*)>/i)?.[1] || '';
-  for (const key of ['tests', 'failures', 'errors', 'skipped', 'time']) {
-    const match = root.match(new RegExp(`${key}="([^"]+)"`, 'i'));
-    if (match) attrs[key] = match[1];
+  if(!/<testsuites?\b/.test(xml))throw new Error('JUnit report has no testsuite root');
+  const attrsOf = text => Object.fromEntries([...text.matchAll(/([\w:-]+)\s*=\s*["']([^"']*)["']/g)].map(m=>[m[1],m[2]]));
+  const numeric = a => Object.fromEntries(['tests','failures','errors','skipped','time'].map(k=>[k,Number(a[k] || 0)]));
+  const root=attrsOf(xml.match(/<testsuites?\b([^>]*)>/i)?.[1] || '');
+  let attrs;
+  if(root.tests!==undefined)attrs=root;
+  else {
+    const stack=[], totals={tests:0,failures:0,errors:0,skipped:0,time:0};
+    // Add outer suites once; do not double count parent aggregate + child suites.
+    for(const match of xml.matchAll(/<(\/?)testsuite\b([^>]*)>/g)) {
+      if(match[1]){stack.pop();continue;}
+      const a=attrsOf(match[2]);
+      const counted=stack.some(x=>x);
+      const own=a.tests!==undefined;
+      if(!counted && own)for(const [k,v] of Object.entries(numeric(a)))totals[k]+=v;
+      if(!match[2].trimEnd().endsWith('/'))stack.push(own || counted);
+    }
+    attrs=totals;
   }
-  const failures = [...xml.matchAll(/<(failure|error)\b[^>]*message="([^"]*)"[^>]*>/gi)].slice(0, 10).map(match => match[2]);
-  return { attrs, failures };
+  const failures=[...xml.matchAll(/<(failure|error)\b[^>]*message=["']([^"']*)["'][^>]*>/gi)].slice(0,10).map(m=>m[2]);
+  return {attrs,failures};
+}
+
+function tapSummary(text) {
+  const all=String(text).split(/\r?\n/);
+  const cases=all.filter(l=>/^(not )?ok\b/.test(l));
+  const counter=k=>{const matches=[...String(text).matchAll(new RegExp(`^# ${k} (\\d+)\\s*$`,'gm'))];return matches.length?Number(matches.at(-1)[1]):null;};
+  const tests=counter('tests') ?? cases.length;
+  const failures=counter('fail') ?? cases.filter(l=>l.startsWith('not ok')&&!/# (TODO|SKIP)/i.test(l)).length;
+  const skipped=counter('skipped') ?? cases.filter(l=>/# SKIP/i.test(l)).length;
+  return {tests,failures,skipped,failedCases:cases.filter(l=>l.startsWith('not ok')).slice(0,10)};
 }
 
 async function customReporter({ report, context, cwd }) {
@@ -51,7 +83,8 @@ async function customReporter({ report, context, cwd }) {
   let stderr = '';
   child.stdout.on('data', chunk => { stdout += chunk; });
   child.stderr.on('data', chunk => { stderr += chunk; });
-  const code = await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', resolve); });
+  const timeout=setTimeout(()=>child.kill('SIGKILL'),report.timeoutMs || 120000);
+  let code;try{code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});}finally{clearTimeout(timeout);}
   if (code !== 0) throw new Error(`custom reporter failed with exit ${code}: ${stderr.trim()}`);
   const parsed = JSON.parse(stdout);
   if (typeof parsed.short !== 'string' || typeof parsed.medium !== 'string') throw new Error('custom reporter must emit JSON with string short and medium');
@@ -59,6 +92,7 @@ async function customReporter({ report, context, cwd }) {
 }
 
 export async function buildStepReport({ result, report = { profile: 'command-output' }, reportDir, workspace }) {
+  validateReporter(report);
   await ensureDir(reportDir);
   const primary = path.join(reportDir, 'primary.json');
   await writeJsonAtomic(primary, result);
@@ -85,6 +119,32 @@ export async function buildStepReport({ result, report = { profile: 'command-out
       short = `tests=${summary.attrs.tests ?? '?'} failures=${summary.attrs.failures ?? '?'} errors=${summary.attrs.errors ?? '?'} skipped=${summary.attrs.skipped ?? '?'}`;
       medium = `${short}\ntime=${summary.attrs.time ?? '?'}\n${summary.failures.length ? `failures:\n- ${summary.failures.join('\n- ')}` : 'no reported failure messages'}`;
       fullPath = source;
+      break;
+    }
+    case 'tap': {
+      const summary=tapSummary(result.stdout);
+      short=`tests=${summary.tests} failures=${summary.failures} skipped=${summary.skipped}`;
+      medium=`${short}\ncommandExit=${result.exitCode} durationMs=${result.durationMs}\n${summary.failedCases.join('\n') || 'No failed cases reported'}`;
+      break;
+    }
+    case 'json-lines': {
+      const source=await preserveSource(path.resolve(workspace,report.source),reportDir);
+      const rows=(await fsp.readFile(source,'utf8')).split(/\r?\n/).filter(l=>l.trim()).map(l=>JSON.parse(l));
+      const counts={};for(const row of rows){const key=String(row.level ?? row.status ?? 'record');counts[key]=(counts[key] || 0)+1;}
+      short=`${rows.length} records; ${(await fsp.stat(source)).size} bytes`;
+      medium=`${short}\nCounts by level/status: ${JSON.stringify(counts)}\n${rows.filter(x=>x.error || x.level==='error' || x.status==='failed').slice(0,10).map(x=>JSON.stringify(x)).join('\n')}`;
+      fullPath=source;break;
+    }
+    case 'artifact-list': {
+      const artifacts=[];
+      for(const [i,relative] of report.sources.entries()){
+        const source=path.resolve(workspace,relative);const saved=path.join(reportDir,`artifact-${i}${path.extname(source)}`);
+        await fsp.copyFile(source,saved);await fsp.chmod(saved,0o600);
+        artifacts.push({name:relative,path:saved,bytes:(await fsp.stat(saved)).size,sha256:await sha256File(saved)});
+      }
+      fullPath=path.join(reportDir,'artifacts.json');await writeJsonAtomic(fullPath,{schema:'workspace-recover/artifact-report/v2',artifacts});
+      short=`${artifacts.length} artifacts; ${artifacts.reduce((n,x)=>n+x.bytes,0)} bytes`;
+      medium=`${short}\n${artifacts.map(x=>`${x.name}: ${x.bytes} bytes; SHA256 ${x.sha256}`).join('\n')}`;
       break;
     }
     case 'custom-command': {

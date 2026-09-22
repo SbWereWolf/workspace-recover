@@ -1,3 +1,4 @@
+import { assertFormat } from '../core/formats.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { copyFileVerified, ensureDir, pathExists, readJson, sha256File, writeJsonAtomic, writeTextAtomic } from '../core/util.mjs';
@@ -54,7 +55,7 @@ export class LocalFilesProvider {
     if (reference.startsWith('file://')) dir = new URL(reference).pathname;
     const stat = await fsp.stat(dir);
     if (stat.isFile()) dir = path.dirname(dir);
-    const index = await readJson(path.join(dir, 'handoff.json'));
+    const index = assertFormat(await readJson(path.join(dir, 'handoff.json')),'handoff-local');
     let readDir = dir;
     if (destinationDirectory) {
       await ensureDir(destinationDirectory);

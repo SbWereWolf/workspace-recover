@@ -1,3 +1,4 @@
+import { assertFormat, assertRequirements, assertTransport } from './formats.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { assembleParts, extractTarGz } from './archive.mjs';
@@ -38,6 +39,8 @@ export async function executeRecoveryManifest({
   freshDownload = false,
 }) {
   if (recovery?.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
+  assertRequirements(recovery.requires);
+  assertFormat(recovery.transport,'transport-manifest');
   if (!provider) throw new Error('resolved recovery execution requires a provider');
   validateWorkflow(recovery.restore?.workflow || []);
   const safeFileName = value => typeof value === 'string' && value.length > 0 && !['.', '..'].includes(value) && !/[\\/\0]/.test(value) && !/^[A-Za-z]:/.test(value);
@@ -51,6 +54,7 @@ export async function executeRecoveryManifest({
     if (part.index !== i) throw new Error('transport part indices must be contiguous and ordered');
     names.add(part.fileName);
   }
+  assertTransport(recovery.transport);
   const providerConfig = recovery.transport?.provider || {};
   const expectedFolder = expectedFolderId(expectedDriveFolder || providerConfig.folderId || null);
   if (expectedDriveFolder && providerConfig.folderId && expectedFolderId(providerConfig.folderId) !== expectedFolderId(expectedDriveFolder)) {
@@ -120,7 +124,7 @@ export async function continueRestore(store, session, setValues = {}) {
 
 async function resolveAndRunRestore(store, session) {
   if (['completed', 'completed_with_warnings', 'failed'].includes(session.state)) return session;
-  if (session.planFrozen) return runRestorePlan(store, session, await readJson(session.planPath));
+  if (session.planFrozen) return runRestorePlan(store, session, assertFormat(await readJson(session.planPath),'plan'));
   const sessionDir = store.directory(session.id);
   let recoveryManifestPath = session.recoveryManifestPath;
   if (!recoveryManifestPath) {
@@ -132,8 +136,9 @@ async function resolveAndRunRestore(store, session) {
     recoveryManifestPath = handoff.attachments['workspace-recovery-manifest.json'];
     const transportPath = handoff.attachments['workspace-transport-manifest.json'];
     if (!indexFile || !recoveryManifestPath || !transportPath) throw new Error('handoff is missing required recovery attachments');
-    const index = await readJson(indexFile);
+    const index = assertFormat(await readJson(indexFile),'handoff');
     if (await sha256File(recoveryManifestPath) !== index.recoveryManifestSha256) throw new Error('recovery manifest hash mismatch in handoff');
+    assertFormat(await readJson(transportPath),'transport-manifest');
     if (await sha256File(transportPath) !== index.transportManifestSha256) throw new Error('transport manifest hash mismatch in handoff');
     session.recoveryManifestPath = recoveryManifestPath;
     session.handoffIndexPath = indexFile;
@@ -154,7 +159,7 @@ async function resolveAndRunRestore(store, session) {
     session.planFrozen = true;
     await store.save(session);
   }
-  const plan = await readJson(session.planPath);
+  const plan = assertFormat(await readJson(session.planPath),'plan');
   return runRestorePlan(store, session, plan);
 }
 

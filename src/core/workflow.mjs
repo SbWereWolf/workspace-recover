@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { spawn } from 'node:child_process';
-import { buildAggregateReport, buildStepReport } from './reporting.mjs';
+import { buildAggregateReport, buildStepReport, validateReporter } from './reporting.mjs';
 import { ensureDir, nowIso, writeJsonAtomic } from './util.mjs';
 
 function expand(value, context) {
@@ -65,6 +65,7 @@ export function validateWorkflow(steps) {
     }
     if (step.cwd !== undefined && typeof step.cwd !== 'string') throw new Error(`workflow step ${step.id} requires a string cwd`);
     if (step.timeoutMs !== undefined && (!Number.isSafeInteger(step.timeoutMs) || step.timeoutMs <= 0)) throw new Error(`workflow step ${step.id} requires a positive timeoutMs`);
+    if (step.report !== undefined) validateReporter(step.report);
     if (step.env !== undefined && (step.env === null || typeof step.env !== 'object' || Array.isArray(step.env) || Object.values(step.env).some(x => typeof x !== 'string'))) throw new Error(`workflow step ${step.id} requires string env values`);
   }
 }
@@ -86,7 +87,7 @@ export async function executeWorkflow({ steps = [], workspace, sessionDir, conte
     await ensureDir(stepDir);
     const result = await runCommand(step, workspace, stepDir, { workspace, stepDir, ...context });
     try {
-      result.report = await buildStepReport({ result, report: step.report || { profile: 'command-output' }, reportDir: path.join(stepDir, 'report'), workspace });
+      result.report = await buildStepReport({ result, report: expand(step.report || { profile: 'command-output' },{workspace,stepDir,...context}), reportDir: path.join(stepDir, 'report'), workspace });
     } catch (error) {
       // A reporter failure is evidence failure, not authorization to skip cleanup.
       result.reportError = error.message;

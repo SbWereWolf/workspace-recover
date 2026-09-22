@@ -33,7 +33,8 @@ More: workspace-recover info <session>
 
 ## Reporter profiles
 
-Built-in profiles: `command-output`, `json`, `junit`, `custom-command`.
+Built-in profiles: `command-output`, `json`, `json-lines`, `junit`, `tap`,
+`artifact-list`, `custom-command`.
 `medium` не имеет универсального алгоритма: JUnit показывает тестовые counters,
 provider-report — transport details, custom reporter — доменно полезную сводку.
 
@@ -85,3 +86,22 @@ workspace-recover info SESSION --view full
 выдаёт только путь к `session.json`. С `--type` выдаётся только путь к первичному
 файлу выбранного результата. Metadata/hash можно получить через сохранённые
 receipt/report записи, но команда `full` не добавляет их в stdout.
+
+## Доменные представления
+
+| Профиль | Полезное medium | Объявленный источник |
+|---|---|---|
+| `command-output` | Код процесса, длительность и диагностический текст | stdout/stderr процесса |
+| `junit` | Суммарные тесты, ошибки, пропуски и сообщения failures | `source` — JUnit XML |
+| `tap` | Тесты, failures, skips и имена неуспешных случаев | stdout процесса |
+| `json` | Содержимое JSON с ограничением объёма | `source` |
+| `json-lines` | Число записей/байтов, счётчики level/status и ошибки | `source` |
+| `artifact-list` | Список файлов, размеры и контрольные суммы | `sources` |
+| `custom-command` | Значение `medium`, сформированное авторским parser | `argv` |
+
+Универсального правила «первые два/последние два» нет. Реестр не выбирает тесты:
+профиль относится к отчёту уже объявленной команды. Custom parser получает
+`WR_PRIMARYPATH`, `WR_STDOUTPATH`, `WR_STDERRPATH`, `WR_WORKSPACE`; возвращает JSON
+с `short`, `medium` и необязательным `fullPath`. Исходный файл сохраняется до
+следующей команды. Зависимость parser от приложения задаёт автор manifest, а
+не runtime-import инструмента.

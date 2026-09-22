@@ -23,7 +23,28 @@
       "type": "object",
       "properties": {
         "workflow": {
-          "$ref": "workflow.schema.json"
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "workflow.schema.json#/$defs/step"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "action"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
         },
         "target": {
           "type": "object"
@@ -35,6 +56,21 @@
       "required": [
         "provider"
       ]
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "reporters": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "reporter.schema.json"
+      }
+    },
+    "requires": {
+      "$ref": "requirements.schema.json"
     }
   },
   "additionalProperties": true

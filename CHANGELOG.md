@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 031 Declarative actions and reporting
+
+- Compile named actions/reporters into explicit frozen workflows.
+- Add TAP, JSON-lines and artifact-list reports; aggregate JUnit suites.
+- Validate nested transport/plan versions and required format capabilities.
+- Clean successful owned temporary rooms with restrictive directory modes.
+- Isolate the standalone test runner from operator credentials/configuration.
+- Keep failures/warnings and user restore targets intact.
+
 ## 0.2.1 — 030 Project Init / Minimal UX
 
 - One-time project init, portable defaults and ignored local values.
