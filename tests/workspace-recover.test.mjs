@@ -69,11 +69,11 @@ async function makeSource(root) {
 
 function localTemplate(source, backupRoot, workflow = []) {
   return {
-    schema: 'workspace-recover/template/v1',
+    schema: 'workspace-recover/template/v2',
     name: 'test-template',
     inputs: {},
     manifest: {
-      schema: 'workspace-recover/manifest/v1',
+      schema: 'workspace-recover/manifest/v2',
       name: 'test',
       backup: { source: { path: source, exclude: [] }, transport: { partSizeBytes: 1024 }, provider: { type: 'local-files', root: backupRoot } },
       restore: { target: { required: true }, existingTarget: 'reject', workflow },
@@ -93,7 +93,10 @@ test('generator creates reusable template and values example', async () => {
   const out = path.join(root, 'generated');
   const result = await initializeTemplate({ presetDirectory: path.join(ROOT, 'templates', 'local-project'), outputDirectory: out, name: 'my-backup' });
   assert.equal((await readJson(result.templatePath)).name, 'my-backup');
-  assert.ok((await readJson(result.valuesPath)).sourcePath);
+  const form=await readJson(result.valuesPath);
+  assert.equal(form.schema, 'workspace-recover/values/v2');
+  assert.equal(form.values.sourcePath, null);
+  assert.equal(form.values.partSizeBytes, 67108864);
 });
 
 test('template reports missing placeholders without rewriting template', async () => {
@@ -378,7 +381,12 @@ test('restore defers read-only directory modes until children are extracted', as
   ]);
   await fsp.chmod(archive, 0o644);
   const destination = path.join(root, 'restore');
-  const moduleUrl = pathToFileURL(path.join(ROOT, 'src', 'core', 'archive.mjs')).href;
+  // A private 0700 installation/clean-room root need not be readable by nobody.
+  // Stage only the actual unmodified module bytes for the uid-drop regression.
+  const stagedCore=path.join(root, 'core');
+  await fsp.cp(path.join(ROOT, 'src', 'core'), stagedCore, {recursive:true});
+  await fsp.chmod(stagedCore, 0o755);
+  const moduleUrl = pathToFileURL(path.join(stagedCore, 'archive.mjs')).href;
   const script = `import { extractTarGz } from ${JSON.stringify(moduleUrl)}; await extractTarGz({archive:${JSON.stringify(archive)}, destination:${JSON.stringify(destination)}});`;
   const options = { encoding: 'utf8' };
   if (typeof process.getuid === 'function' && process.getuid() === 0) {

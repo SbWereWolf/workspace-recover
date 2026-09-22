@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fsp from 'node:fs/promises';
+import { assertFormat, schema } from './formats.mjs';
 import { deepMerge, getByPath, parseSet, readJson, setByPath, writeJsonAtomic } from './util.mjs';
 
 const FULL_PLACEHOLDER = /^\$\{([A-Za-z0-9_.-]+)\}$/;
@@ -66,42 +67,92 @@ export function renderValue(value, values, { allowMissing = false, deferred = []
 
 export async function loadTemplate(templatePath) {
   const template = await readJson(templatePath);
-  if (template.schema !== 'workspace-recover/template/v1') throw new Error(`unsupported template schema in ${templatePath}`);
+  assertFormat(template, 'template');
   return template;
 }
 
-export async function renderTemplate(template, suppliedValues = {}) {
+export const INPUT_PROVENANCE = Symbol.for('workspace-recover.input-provenance');
+const TYPES = new Set(['string','number','integer','boolean','array','object','path','email','url','enum','google-drive-folder']);
+function inputMatches(definition, value) {
+  if (value === null) return definition.nullable === true;
+  switch (definition.type || 'string') {
+    case 'string': return typeof value === 'string';
+    case 'path': return typeof value === 'string' && value.length > 0 && !value.includes('\0');
+    case 'email': return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    case 'url': try { return ['https:', 'http:', 'file:'].includes(new URL(value).protocol); } catch { return false; }
+    case 'google-drive-folder': return typeof value === 'string' && (/^[A-Za-z0-9_-]+$/.test(value) || /^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]+(?:[/?#].*)?$/.test(value));
+    case 'integer': return Number.isSafeInteger(value);
+    case 'number': return typeof value === 'number' && Number.isFinite(value);
+    case 'boolean': return typeof value === 'boolean';
+    case 'array': return Array.isArray(value);
+    case 'object': return value !== null && typeof value === 'object' && !Array.isArray(value);
+    case 'enum': return Array.isArray(definition.enum) && definition.enum.some(v => JSON.stringify(v) === JSON.stringify(value));
+    default: return false;
+  }
+}
+function leafEntries(object, prefix = '') {
+  const result=[];
+  for (const [key,value] of Object.entries(object)) {
+    const dotted = prefix ? `${prefix}.${key}` : key;
+    // Reject dangerous keys even when the entire nested value replaces a default.
+    getByPath({}, dotted);
+    if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length) result.push(...leafEntries(value,dotted));
+    else result.push([dotted,value]);
+  }
+  return result;
+}
+export function describeInputs(template) {
+  assertFormat(template, 'template');
+  return { schema: schema('input-requirements'), template: template.name, inputs: template.inputs || {} };
+}
+export async function renderTemplate(template, suppliedValues = {}, suppliedProvenance = null) {
+  assertFormat(template, 'template');
   const base = collectInputDefaults(template);
   const values = resolveDerivedInputs(template, deepMerge(base, suppliedValues));
-  const requiredMissing = [];
+  const requiredMissing = [], errors = [], provenance = {};
   for (const [key, definition] of Object.entries(template.inputs || {})) {
+    if (definition.type && !TYPES.has(definition.type)) throw new Error(`unsupported input type: ${definition.type}`);
     const value = getByPath(values, key);
-    if (definition.required && value === undefined) requiredMissing.push(key);
-    if (value !== undefined && definition.type) {
-      const matches = {
-        string: typeof value === 'string',
-        number: typeof value === 'number' && Number.isFinite(value),
-        integer: Number.isSafeInteger(value),
-        boolean: typeof value === 'boolean',
-        array: Array.isArray(value),
-        object: value !== null && typeof value === 'object' && !Array.isArray(value),
-      };
-      if (matches[definition.type] !== true) throw new Error(`template input ${key} must be ${definition.type}`);
-    }
+    if (definition.required && (value === undefined || value === null || value === '')) requiredMissing.push(key);
+    else if (value !== undefined && !inputMatches(definition, value)) errors.push({key,message:`template input ${key} must be ${definition.type || 'string'}`});
+    provenance[key] = [];
+    if (Object.hasOwn(definition,'default')) provenance[key].push({source:'default',value:definition.default});
+    const supplied = suppliedProvenance || suppliedValues[INPUT_PROVENANCE] || {};
+    const origins = Object.entries(supplied).filter(([p]) => p === key || p.startsWith(key+'.') || key.startsWith(p+'.')).flatMap(([,v])=>v);
+    if (origins.length) provenance[key].push(...origins);
+    else if (getByPath(suppliedValues,key) !== undefined) provenance[key].push({source:'supplied',value:getByPath(suppliedValues,key)});
+    else if (definition.derive && value !== undefined) provenance[key].push({source:'derived',expression:definition.derive,value});
   }
-  // Runtime workflow locations must be bound in the actual restored workspace,
-  // never captured from the backup author's machine during template rendering.
-  const authorManifest = structuredClone(template.manifest);
-  const workflow = authorManifest.restore?.workflow;
-  if (workflow !== undefined) delete authorManifest.restore.workflow;
-  const rendered = renderValue(authorManifest, values, { allowMissing: true });
-  if (workflow !== undefined) {
-    const runtime = renderValue(workflow, values, { allowMissing: true, deferred: ['workspace', 'stepDir', 'operation'] });
-    rendered.value.restore.workflow = runtime.value;
-    rendered.missing.push(...runtime.missing);
+  const declared=Object.keys(template.inputs || {});
+  for (const [key] of leafEntries(suppliedValues)) {
+    if (!declared.some(d=>key===d || key.startsWith(d+'.') || d.startsWith(key+'.'))) errors.push({key,message:`unknown template input: ${key}`});
   }
-  const missing = [...new Set([...requiredMissing, ...rendered.missing])].sort();
-  return { manifest: rendered.value, values, missing };
+  // Workspace/step locations are late-bound by the executor, never by the operator.
+  const authorManifest=structuredClone(template.manifest);
+  const workflow=authorManifest.restore?.workflow;
+  if (workflow!==undefined) delete authorManifest.restore.workflow;
+  const rendered=renderValue(authorManifest,values,{allowMissing:true});
+  if (workflow!==undefined) {
+    const runtime=renderValue(workflow,values,{allowMissing:true,deferred:['workspace','stepDir','operation']});
+    rendered.value.restore.workflow=runtime.value;rendered.missing.push(...runtime.missing);
+  }
+  const missing=[...new Set([...requiredMissing,...rendered.missing])].sort();
+  return {manifest:rendered.value,values,missing,errors,provenance};
+}
+
+export async function recordInputBatch(store, session, template, rendered) {
+  const needs=[...new Set([...rendered.missing,...rendered.errors.map(e=>e.key)])];
+  const form={}; for (const key of needs) setByPath(form,key,getByPath(rendered.values,key) ?? null);
+  const valuesFile=await store.write(session.id,'missing-values.json',{schema:schema('values'),values:form});
+  const requirementsFile=await store.write(session.id,'input-requirements.json',{
+    ...describeInputs(template),missing:rendered.missing,errors:rendered.errors,valuesFile,
+  });
+  session.state='waiting_for_input';
+  session.next={type:'manual',action:'provide-input',required:rendered.missing,errors:rendered.errors,valuesFile,requirementsFile,
+    command:`workspace-recover continue ${session.id} --values ${JSON.stringify(valuesFile)}`};
+  session.inputProvenance=rendered.provenance;
+  await store.write(session.id,'values.json',{schema:schema('values'),values:rendered.values});
+  await store.save(session);return session;
 }
 
 export async function initializeTemplate({ presetDirectory, outputDirectory, name }) {
@@ -116,15 +167,30 @@ export async function initializeTemplate({ presetDirectory, outputDirectory, nam
   await writeJsonAtomic(path.join(outputDirectory, 'template.json'), template, 0o644);
   const example = {};
   for (const [key, definition] of Object.entries(template.inputs || {})) {
-    if (Object.hasOwn(definition, 'example')) setByPath(example, key, definition.example);
-    else if (Object.hasOwn(definition, 'default')) setByPath(example, key, definition.default);
-    else setByPath(example, key, `<${key}>`);
+    setByPath(example, key, Object.hasOwn(definition,'default') ? definition.default : null);
   }
-  await writeJsonAtomic(path.join(outputDirectory, 'values.example.json'), example, 0o644);
+  await writeJsonAtomic(path.join(outputDirectory, 'values.example.json'), {schema:schema('values'),values:example}, 0o644);
   return { templatePath: path.join(outputDirectory, 'template.json'), valuesPath: path.join(outputDirectory, 'values.example.json') };
 }
 
-export async function loadValues(valuesFile, setItems = []) {
-  const fromFile = valuesFile ? await readJson(valuesFile) : {};
-  return deepMerge(fromFile, parseSet(setItems));
+export async function loadValues(valuesFiles, setItems = [], jsonItems = []) {
+  let result = {}; const provenance = {};
+  const layers=[];
+  for (const file of (Array.isArray(valuesFiles) ? valuesFiles : valuesFiles ? [valuesFiles] : [])) {
+    const doc=assertFormat(await readJson(file),'values');
+    if (!doc.values || typeof doc.values!=='object' || Array.isArray(doc.values)) throw new Error('values document requires an object values');
+    layers.push({source:`values:${path.resolve(file)}`,value:doc.values});
+  }
+  for (const item of setItems) layers.push({source:'--set',value:parseSet([item])});
+  for (const item of jsonItems) {
+    const at=item.indexOf('=');if(at<1)throw new Error('--set-json requires key=JSON');
+    const value={};setByPath(value,item.slice(0,at),JSON.parse(item.slice(at+1)));
+    layers.push({source:'--set-json',value});
+  }
+  for (const layer of layers) {
+    for (const [key,value] of leafEntries(layer.value)) (provenance[key]??=[]).push({source:layer.source,value});
+    result=deepMerge(result,layer.value);
+  }
+  Object.defineProperty(result,INPUT_PROVENANCE,{value:provenance,enumerable:false});
+  return result;
 }

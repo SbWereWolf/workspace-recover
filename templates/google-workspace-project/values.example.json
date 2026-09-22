@@ -1,8 +1,11 @@
 {
-  "projectName": "demo-project",
-  "sourcePath": "/work/demo-project",
-  "driveFolderId": "1AbCdEf...",
-  "gmailTo": "operator@example.com",
-  "googleProfile": "default",
-  "partSizeBytes": 67108864
+  "schema": "workspace-recover/values/v2",
+  "values": {
+    "projectName": null,
+    "sourcePath": null,
+    "driveFolderId": null,
+    "gmailTo": null,
+    "googleProfile": "default",
+    "partSizeBytes": 67108864
+  }
 }

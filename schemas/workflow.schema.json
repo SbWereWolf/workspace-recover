@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/workflow/v1",
+  "$id": "workspace-recover/workflow/v2",
   "type": "array",
   "items": {
     "type": "object",

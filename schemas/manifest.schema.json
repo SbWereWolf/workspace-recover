@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/manifest/v1",
+  "$id": "workspace-recover/manifest/v2",
   "type": "object",
   "required": [
     "schema",
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "workspace-recover/manifest/v1"
+      "const": "workspace-recover/manifest/v2"
     },
     "backup": {
       "type": "object",

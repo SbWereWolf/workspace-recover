@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/session/v1",
+  "$id": "workspace-recover/session/v2",
   "type": "object",
   "required": [
     "schema",
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "workspace-recover/session/v1"
+      "const": "workspace-recover/session/v2"
     },
     "operation": {
       "enum": [

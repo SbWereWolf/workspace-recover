@@ -198,7 +198,7 @@ async function makeRawEmail({ to, subject, body, attachments }) {
 async function gmailPartBytes(profile, messageId, part) {
   if (part.body?.data) return decodeBase64Url(part.body.data);
   if (part.body?.attachmentId) {
-    const response = await googleFetch(profile, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${part.body.attachmentId}`);
+    const response = await googleFetch(profile, `https://gmail.googleapis.com/gmail/v2/users/me/messages/${messageId}/attachments/${part.body.attachmentId}`);
     const data = await response.json();
     return decodeBase64Url(data.data || '');
   }
@@ -265,7 +265,7 @@ export class GoogleWorkspaceProvider {
 
   async sendHandoff({ to, subject, body, attachments }) {
     const raw = await makeRawEmail({ to, subject, body, attachments });
-    const response = await googleFetch(this.profile, 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    const response = await googleFetch(this.profile, 'https://gmail.googleapis.com/gmail/v2/users/me/messages/send', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ raw }),
     });
     const data = await response.json();
@@ -275,7 +275,7 @@ export class GoogleWorkspaceProvider {
   async readHandoff(reference, destinationDirectory) {
     const id = gmailMessageId(reference);
     if (!id) throw new Error(`cannot parse Gmail message ID from ${reference}`);
-    const response = await googleFetch(this.profile, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`);
+    const response = await googleFetch(this.profile, `https://gmail.googleapis.com/gmail/v2/users/me/messages/${id}?format=full`);
     const data = await response.json();
     await ensureDir(destinationDirectory);
     const attachments = {};

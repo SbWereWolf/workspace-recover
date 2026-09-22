@@ -1,6 +1,9 @@
 {
-  "projectName": "demo-project",
-  "sourcePath": "/work/demo-project",
-  "backupRoot": "/var/backups/demo-project",
-  "partSizeBytes": 67108864
+  "schema": "workspace-recover/values/v2",
+  "values": {
+    "projectName": null,
+    "sourcePath": null,
+    "backupRoot": null,
+    "partSizeBytes": 67108864
+  }
 }

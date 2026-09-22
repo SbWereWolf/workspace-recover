@@ -44,7 +44,7 @@ export class LocalFilesProvider {
       await copyFileVerified(attachment.path, target);
       copied.push({ name: path.basename(target), path: target, sha256: await sha256File(target) });
     }
-    const index = { schema: 'workspace-recover/handoff-local/v1', sessionId, subject, bodyFile: 'HANDOFF.md', attachments: copied };
+    const index = { schema: 'workspace-recover/handoff-local/v2', sessionId, subject, bodyFile: 'HANDOFF.md', attachments: copied };
     await writeJsonAtomic(path.join(dir, 'handoff.json'), index, 0o644);
     return { id: dir, url: `file://${dir}`, dir };
   }

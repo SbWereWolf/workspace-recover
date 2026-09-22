@@ -6,12 +6,12 @@ import { createTarGz, splitFile } from './archive.mjs';
 import { validateWorkflow } from './workflow.mjs';
 import { executeRecoveryManifest } from './restore.mjs';
 import { providerFromConfig } from './providers.mjs';
-import { loadTemplate, renderTemplate } from './template.mjs';
+import { INPUT_PROVENANCE, loadTemplate, renderTemplate, recordInputBatch } from './template.mjs';
 import { SessionStore, terminalState } from './session.mjs';
 import { deepMerge, ensureDir, nowIso, pathExists, readJson, sha256File, sha256Text, writeJsonAtomic, writeTextAtomic } from './util.mjs';
 
 function manifestValidate(manifest) {
-  if (manifest?.schema !== 'workspace-recover/manifest/v1') throw new Error('manifest schema must be workspace-recover/manifest/v1');
+  if (manifest?.schema !== 'workspace-recover/manifest/v2') throw new Error('manifest schema must be workspace-recover/manifest/v2');
   if (!manifest.backup?.source?.path) throw new Error('manifest.backup.source.path is required');
   if (!manifest.backup?.provider?.type) throw new Error('manifest.backup.provider.type is required');
   if (!manifest.handoff?.provider?.type) throw new Error('manifest.handoff.provider.type is required');
@@ -29,11 +29,12 @@ async function freezePlan(store, session, manifest) {
   const manifestPath = await store.write(session.id, 'manifest.json', manifest);
   const manifestText = await fsp.readFile(manifestPath, 'utf8');
   const plan = {
-    schema: 'workspace-recover/plan/v1',
+    schema: 'workspace-recover/plan/v2',
     operation: 'backup',
     createdAt: nowIso(),
     manifestSha256: sha256Text(manifestText),
     manifest,
+    inputProvenance: session.inputProvenance || {},
   };
   const planPath = await store.write(session.id, 'plan.json', plan);
   session.planPath = planPath;
@@ -78,11 +79,11 @@ export async function startBackupFromManifest({ manifestPath, stateRoot = null }
 
 export async function startBackup({ templatePath, values, stateRoot = null }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('backup', { templateSource: path.resolve(templatePath), inputs: values || {} });
+  const session = await store.create('backup', { templateSource: path.resolve(templatePath), inputs: values || {}, inputProvenance: values?.[INPUT_PROVENANCE] || {} });
   return store.attempt(session, async () => {
     const template = await loadTemplate(templatePath);
     await store.write(session.id, 'template.json', template);
-    await store.write(session.id, 'values.json', values || {});
+    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v2',values:values || {}});
     return resolveAndRunBackup(store, session, template, values || {});
   });
 }
@@ -91,25 +92,24 @@ export async function continueBackup(store, session, setValues = {}) {
   if (terminalState(session.state)) return session;
   return store.attempt(session, async () => {
     // Frozen plans are independent of mutable author files and generators.
+    if (session.planFrozen && Object.keys(setValues).length) throw new Error('frozen plan cannot be overwritten; start a new session');
     if (session.planFrozen) return runBackupPlan(store, session, await readJson(session.planPath));
     const template = await readJson(path.join(store.directory(session.id), 'template.json'));
-    const priorValues = await readJson(path.join(store.directory(session.id), 'values.json'));
+    const priorDocument = await readJson(path.join(store.directory(session.id), 'values.json'));
+    if (priorDocument.schema !== 'workspace-recover/values/v2') throw new Error('unsupported values schema');
+    const priorValues=priorDocument.values;
     const values = deepMerge(priorValues, setValues);
-    await store.write(session.id, 'values.json', values);
+    for (const [k,v] of Object.entries(setValues[INPUT_PROVENANCE] || {})) (session.inputProvenance[k]??=[]).push(...v);
+    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v2',values});
     return resolveAndRunBackup(store, session, template, values);
   });
 }
 
 async function resolveAndRunBackup(store, session, template, values) {
-  const rendered = await renderTemplate(template, values);
+  const rendered = await renderTemplate(template, values, session.inputProvenance);
   session.inputs = rendered.values;
-  if (rendered.missing.length) {
-    session.state = 'waiting_for_input';
-    session.next = nextInput(session.id, rendered.missing);
-    await store.write(session.id, 'values.json', rendered.values);
-    await store.save(session);
-    return session;
-  }
+  session.inputProvenance=rendered.provenance;
+  if (rendered.missing.length || rendered.errors.length) return recordInputBatch(store, session, template, rendered);
   const plan = await freezePlan(store, session, rendered.manifest);
   return runBackupPlan(store, session, plan);
 }
@@ -157,7 +157,7 @@ async function runBackupPlan(store, session, plan) {
   }
 
   const transport = {
-    schema: 'workspace-recover/transport-manifest/v1',
+    schema: 'workspace-recover/transport-manifest/v2',
     archive: { fileName: path.basename(archivePath), bytes: archiveInfo.bytes, sha256: archiveInfo.sha256, format: 'tar.gz' },
     provider: manifest.backup.provider,
     parts: uploadedParts.map(item => ({ index: item.index, fileName: item.fileName, bytes: item.bytes, sha256: item.sha256, remote: { id: item.id, url: item.url, parent: item.parent } })),
@@ -171,7 +171,7 @@ async function runBackupPlan(store, session, plan) {
   }
 
   const recoveryManifest = {
-    schema: 'workspace-recover/recovery-manifest/v1',
+    schema: 'workspace-recover/recovery-manifest/v2',
     backupSessionId: session.id,
     createdAt: nowIso(),
     transport,
@@ -201,7 +201,7 @@ async function runBackupPlan(store, session, plan) {
   } catch (error) {
     session.progress.rehearsal.state = 'failed';
     await store.write(session.id, 'rehearsal-receipt.json', {
-      schema: 'workspace-recover/rehearsal-receipt/v1', sessionId: session.id,
+      schema: 'workspace-recover/rehearsal-receipt/v2', sessionId: session.id,
       cleanRoom: cleanRoot, cleanRoomPreserved: await pathExists(cleanRoot),
       restoreStatus: 'failed', verificationStatus: 'not_run', error: error.message, completedAt: nowIso(),
     });
@@ -210,7 +210,7 @@ async function runBackupPlan(store, session, plan) {
   const rehearsalWorkflow = rehearsalExecution.workflow;
   const rehearsalClean = !rehearsalWorkflow.hardFailure && !rehearsalWorkflow.advisoryWarnings;
   const rehearsalReceipt = {
-    schema: 'workspace-recover/rehearsal-receipt/v1',
+    schema: 'workspace-recover/rehearsal-receipt/v2',
     sessionId: session.id,
     cleanRoom: cleanRoot,
     restoreStatus: 'success',
@@ -228,7 +228,7 @@ async function runBackupPlan(store, session, plan) {
   const rehearsalReceiptPath = await store.write(session.id, 'rehearsal-receipt.json', rehearsalReceipt);
 
   const backupReceipt = {
-    schema: 'workspace-recover/backup-receipt/v1',
+    schema: 'workspace-recover/backup-receipt/v2',
     sessionId: session.id,
     archive: transport.archive,
     transportManifestRemote: transportRemote,
@@ -238,7 +238,7 @@ async function runBackupPlan(store, session, plan) {
   };
   const backupReceiptPath = await store.write(session.id, 'backup-receipt.json', backupReceipt);
   const handoffIndex = {
-    schema: 'workspace-recover/handoff/v1',
+    schema: 'workspace-recover/handoff/v2',
     backupSessionId: session.id,
     recoveryManifestSha256: await sha256File(recoveryManifestPath),
     transportManifestSha256: await sha256File(transportPath),

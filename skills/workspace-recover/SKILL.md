@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 1.1.0
+version: 2.0.0
 ---
 
 # workspace-recover
@@ -77,3 +77,15 @@ resolved by the executor, not requested as template inputs from the operator.
 Do not run cleanup, parser, or recovery commands while answering an info query.
 OAuth file-presence status does not establish a successful live provider request.
 Commands from manifests are trusted operator actions, not sandboxed by mkdtemp.
+
+## Batch-first input contract
+
+Read the bundled `templates/<preset>/values.example.json` directly; no CLI
+inspection roundtrip is required. Fill all placeholders in one versioned v2
+values document, then pass `--values FILE --non-interactive`. Multiple values
+files and `--set`/`--set-json` retain ordered provenance. Never issue one prompt
+per missing key when the tool already reports the full missing/error batch.
+`--interactive` is an explicit human convenience opening a single values form.
+Use `next SESSION --json` for the complete batch and `continue --values FILE`.
+Old/unversioned formats require a different tool release, never compatibility
+rewrites. Do not override a frozen plan with new input values.

@@ -37,7 +37,7 @@ export async function executeRecoveryManifest({
   operation = 'restore',
   freshDownload = false,
 }) {
-  if (recovery?.schema !== 'workspace-recover/recovery-manifest/v1') throw new Error('unsupported recovery manifest schema');
+  if (recovery?.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
   if (!provider) throw new Error('resolved recovery execution requires a provider');
   validateWorkflow(recovery.restore?.workflow || []);
   const safeFileName = value => typeof value === 'string' && value.length > 0 && !['.', '..'].includes(value) && !/[\\/\0]/.test(value) && !/^[A-Za-z]:/.test(value);
@@ -103,7 +103,7 @@ export async function startRestoreFromManifest({ manifestPath, target = null, go
   return store.attempt(session, async () => {
     const raw = await fsp.readFile(manifestPath);
     const recovery = JSON.parse(raw);
-    if (recovery.schema !== 'workspace-recover/recovery-manifest/v1') throw new Error('unsupported recovery manifest schema');
+    if (recovery.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
     session.recoveryManifestPath = await store.write(session.id, 'selected-recovery-manifest.json', raw);
     session.recoveryManifestSha256 = await sha256File(session.recoveryManifestPath);
     await store.save(session);
@@ -141,7 +141,7 @@ async function resolveAndRunRestore(store, session) {
     await store.save(session);
   }
   const recovery = await readJson(session.recoveryManifestPath);
-  if (recovery.schema !== 'workspace-recover/recovery-manifest/v1') throw new Error('unsupported recovery manifest schema');
+  if (recovery.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
   const target = session.inputs?.target || recovery.restore?.target?.path;
   if (!target) {
     session.state = 'waiting_for_input';
@@ -149,7 +149,7 @@ async function resolveAndRunRestore(store, session) {
     await store.save(session); return session;
   }
   if (!session.planFrozen) {
-    const plan = { schema: 'workspace-recover/plan/v1', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), recoveryManifest: recovery };
+    const plan = { schema: 'workspace-recover/plan/v2', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), recoveryManifest: recovery };
     session.planPath = await store.write(session.id, 'plan.json', plan);
     session.planFrozen = true;
     await store.save(session);
@@ -176,7 +176,7 @@ async function runRestorePlan(store, session, plan) {
   });
   const { workspace, assembled, workflow } = execution;
   const restoreReceipt = {
-    schema: 'workspace-recover/restore-receipt/v1', sessionId: session.id, target: workspace,
+    schema: 'workspace-recover/restore-receipt/v2', sessionId: session.id, target: workspace,
     archiveVerified: true, restoreStatus: 'success', workflowHardFailure: workflow.hardFailure,
     verificationStatus: workflow.advisoryWarnings ? 'warnings' : 'passed', completedAt: nowIso(),
   };

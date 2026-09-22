@@ -1,30 +1,34 @@
 {
-  "schema": "workspace-recover/template/v1",
+  "schema": "workspace-recover/template/v2",
   "name": "local-project",
   "inputs": {
     "projectName": {
       "required": true,
       "example": "demo-project",
-      "type": "string"
+      "type": "string",
+      "description": "Stable project identifier"
     },
     "sourcePath": {
       "required": true,
       "example": "/work/demo-project",
-      "type": "string"
+      "type": "path",
+      "description": "Absolute workspace source path"
     },
     "backupRoot": {
       "required": true,
       "example": "/var/backups/demo-project",
-      "type": "string"
+      "type": "path",
+      "description": "Local artifact storage root"
     },
     "partSizeBytes": {
       "default": 67108864,
       "example": 67108864,
-      "type": "integer"
+      "type": "integer",
+      "description": "Maximum transport part bytes"
     }
   },
   "manifest": {
-    "schema": "workspace-recover/manifest/v1",
+    "schema": "workspace-recover/manifest/v2",
     "name": "${projectName}",
     "backup": {
       "source": {

@@ -1,40 +1,46 @@
 {
-  "schema": "workspace-recover/template/v1",
+  "schema": "workspace-recover/template/v2",
   "name": "google-workspace-project",
   "inputs": {
     "projectName": {
       "required": true,
       "example": "demo-project",
-      "type": "string"
+      "type": "string",
+      "description": "Stable project identifier"
     },
     "sourcePath": {
       "required": true,
       "example": "/work/demo-project",
-      "type": "string"
+      "type": "path",
+      "description": "Absolute workspace source path"
     },
     "driveFolderId": {
       "required": true,
       "example": "1AbCdEf...",
-      "type": "string"
+      "type": "google-drive-folder",
+      "description": "Google Drive folder ID or canonical URL"
     },
     "gmailTo": {
       "required": true,
       "example": "operator@example.com",
-      "type": "string"
+      "type": "email",
+      "description": "Handoff recipient mailbox"
     },
     "googleProfile": {
       "default": "default",
       "example": "default",
-      "type": "string"
+      "type": "string",
+      "description": "Local OAuth profile name"
     },
     "partSizeBytes": {
       "default": 67108864,
       "example": 67108864,
-      "type": "integer"
+      "type": "integer",
+      "description": "Maximum transport part bytes"
     }
   },
   "manifest": {
-    "schema": "workspace-recover/manifest/v1",
+    "schema": "workspace-recover/manifest/v2",
     "name": "${projectName}",
     "backup": {
       "source": {

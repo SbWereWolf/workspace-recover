@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/input-requirements/v2",
+  "type": "object",
+  "required": [
+    "schema",
+    "inputs"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/input-requirements/v2"
+    },
+    "inputs": {
+      "type": "object"
+    }
+  }
+}

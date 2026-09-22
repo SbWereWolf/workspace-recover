@@ -1,3 +1,4 @@
+import { assertFormat } from './formats.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { ensureDir, homeStateDir, nowIso, readJson, sessionId, writeJsonAtomic } from './util.mjs';
@@ -17,7 +18,7 @@ export class SessionStore {
     const dir = this.directory(id);
     await ensureDir(dir);
     const session = {
-      schema: 'workspace-recover/session/v1',
+      schema: 'workspace-recover/session/v2',
       id,
       operation,
       state: 'running',
@@ -32,7 +33,7 @@ export class SessionStore {
   }
 
   async load(id) {
-    return readJson(path.join(this.directory(id), 'session.json'));
+    return assertFormat(await readJson(path.join(this.directory(id), 'session.json')), 'session');
   }
 
   async save(session) {

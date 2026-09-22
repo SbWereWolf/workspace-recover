@@ -2,9 +2,11 @@
 
 Самостоятельное приложение резервирования и восстановления рабочей области.
 Папка переносится целиком: runtime-imports из родительского репозитория и соседних
-приложений отсутствуют. Это исправленная ранняя поставка 0.1.2, а не сертифицированный релиз.
+приложений отсутствуют. Это исправленная ранняя поставка 0.2.0, а не сертифицированный релиз.
 GitHub-адреса в package metadata задают целевые реквизиты продукта; публикация
 репозитория этой поставкой не выполняется.
+
+Для агента: [обязательный skill](skills/workspace-recover/SKILL.md).
 
 ## Запуск без установки зависимостей
 
@@ -21,6 +23,33 @@ node /path/to/workspace-recover/scripts/check.mjs
 `npm test` из каталога приложения запускает тот же собственный runner; `npm install`
 не нужен. В примерах ниже `workspace-recover` обозначает bin-команду пакета; без
 установки заменяйте её на `node /path/to/workspace-recover/bin/workspace-recover.mjs`.
+
+## Пакетные входы без предварительного вызова
+
+Готовые формы лежат в поставке: `templates/local-project/values.example.json`
+и `templates/google-workspace-project/values.example.json`. Скопируйте нужный
+файл, заполните все `null` одним пакетом и передайте `--values FILE`.
+`template describe NAME --format json` остаётся доступен, но не обязателен.
+
+Форматы этого выпуска — только `workspace-recover/<kind>/v2`.
+Документы без версии, `/v1` и неизвестные версии отвергаются, не преобразуются.
+
+```bash
+workspace-recover backup local-project --values project.values.json --non-interactive
+workspace-recover backup local-project --values shared.json --values machine.local.json --set partSizeBytes=1048576
+workspace-recover backup local-project --interactive --editor /usr/bin/nano
+```
+
+`--values` повторяется; более поздний слой перекрывает ранний, объекты объединяются,
+массивы заменяются. `--set key=value` и `--set-json key=JSON` перекрывают файлы.
+Происхождение и история значений записываются в plan. Машинные пути и credentials
+не входят в versioned проектную конфигурацию. CLI-аргументы видны ОС; секреты в них
+не передаются.
+
+Все отсутствующие и неверные значения выдаются одним пакетом, рядом сохраняются
+`missing-values.json` и `input-requirements.json`. Заполните файл и выполните
+один `continue SESSION --values FILE`. `--interactive` открывает весь файл одним
+вызовом executable `EDITOR`/`VISUAL` либо `--editor PATH` без shell и одиночных вопросов.
 
 ## Однократная подготовка и обычная работа
 

@@ -98,14 +98,21 @@ export function parseSet(items = []) {
   return result;
 }
 
+export function assertSafeKey(dotted) {
+  if (typeof dotted !== 'string' || !dotted || dotted.split('.').some(k => !k || ['__proto__', 'prototype', 'constructor'].includes(k))) throw new Error('unsafe or reserved value key');
+}
+
 export function getByPath(object, dotted) {
-  return dotted.split('.').reduce((value, key) => value?.[key], object);
+  assertSafeKey(dotted);
+  return dotted.split('.').reduce((value, key) => value && Object.hasOwn(value, key) ? value[key] : undefined, object);
 }
 
 export function setByPath(object, dotted, value) {
+  assertSafeKey(dotted);
   const parts = dotted.split('.');
   let cursor = object;
   for (const key of parts.slice(0, -1)) {
+    if (cursor[key] !== undefined && (cursor[key] === null || typeof cursor[key] !== 'object' || Array.isArray(cursor[key]))) throw new Error(`value path conflicts at ${key}`);
     cursor[key] ??= {};
     cursor = cursor[key];
   }
@@ -118,7 +125,8 @@ export function deepMerge(base, overlay) {
   }
   const result = structuredClone(base);
   for (const [key, value] of Object.entries(overlay)) {
-    result[key] = key in result ? deepMerge(result[key], value) : structuredClone(value);
+    assertSafeKey(key);
+    result[key] = Object.hasOwn(result, key) ? deepMerge(result[key], value) : structuredClone(value);
   }
   return result;
 }

@@ -15,7 +15,7 @@ async function fixture(t, workflow = []) {
   await fsp.writeFile(path.join(source, 'data.txt'), 'first version\n');
   const manifestPath = path.join(root, 'manifest.json');
   const manifest = {
-    schema: 'workspace-recover/manifest/v1', name: 'history-test',
+    schema: 'workspace-recover/manifest/v2', name: 'history-test',
     backup: { source: { path: source, exclude: [] }, transport: { partSizeBytes: 1024 }, provider: { type: 'local-files', root: path.join(root, 'objects') } },
     restore: { existingTarget: 'reject', workflow },
     handoff: { provider: { type: 'local-files', root: path.join(root, 'handoff-provider'), handoffRoot: path.join(root, 'mail') }, subject: 'rebranding' },

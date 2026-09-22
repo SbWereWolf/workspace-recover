@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 029 Batch Inputs
+
+- Current format v2 only; versioned bundled values forms.
+- Typed batch resolution, layering, CLI JSON values, provenance.
+- One-form interactive mode; complete missing-input requests.
+- P0 permission regressions retained.
+
+
 ## 0.1.2 — permission-safety bugfix
 
 - Каталоги с ограниченными правами (`0555`, `0000` и аналогичные) во время
