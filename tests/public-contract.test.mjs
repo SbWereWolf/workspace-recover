@@ -14,7 +14,7 @@ const CLI=path.join(ROOT,'bin/workspace-recover.mjs');
 async function fixture(t){
  const root=await fsp.mkdtemp(path.join(os.tmpdir(),'wr-public-test-'));t.after(()=>fsp.rm(root,{recursive:true,force:true}));
  const source=path.join(root,'source');await fsp.mkdir(source);await fsp.writeFile(path.join(source,'data'),'version1');
- const manifest={schema:'workspace-recover/manifest/v2',backup:{source:{path:source},provider:{type:'local-files',root:path.join(root,'objects')}},restore:{existingTarget:'reject',workflow:[]},handoff:{provider:{type:'local-files',root:path.join(root,'objects')},subject:'rebranding'}};
+ const manifest={schema:'workspace-recover/manifest/v3',backup:{source:{path:source},provider:{type:'local-files',root:path.join(root,'objects')}},restore:{existingTarget:'reject',workflow:[]},handoff:{provider:{type:'local-files',root:path.join(root,'objects')},subject:'rebranding'}};
  const manifestPath=path.join(root,'backup.json');await fsp.writeFile(manifestPath,JSON.stringify(manifest));
  return {root,source,manifest,manifestPath,stateRoot:path.join(root,'state')};
 }
@@ -30,13 +30,13 @@ test('operator can restore an explicitly edited manifest without altering old ha
 });
 
 test('runtime workflow placeholders are deferred without requesting them as operator inputs',async()=>{
- const template={schema:'workspace-recover/template/v2',inputs:{sourcePath:{required:true,type:'string'}},manifest:{schema:'workspace-recover/manifest/v2',backup:{source:{path:'${sourcePath}'}},restore:{workflow:[{id:'x',type:'command',argv:['node','check.mjs','${workspace}','${stepDir}','${operation}']}]}}};
+ const template={schema:'workspace-recover/template/v3',inputs:{sourcePath:{required:true,type:'string'}},manifest:{schema:'workspace-recover/manifest/v3',backup:{source:{path:'${sourcePath}'}},restore:{workflow:[{id:'x',type:'command',argv:['node','check.mjs','${workspace}','${stepDir}','${operation}']}]}}};
  const r=await renderTemplate(template,{sourcePath:'/declared-source'});assert.deepEqual(r.missing,[]);
  assert.equal(r.manifest.restore.workflow[0].argv[2],'${workspace}');
 });
 
 test('declared input types are checked, not silently converted',async()=>{
- const template={schema:'workspace-recover/template/v2',inputs:{partSizeBytes:{required:true,type:'integer'}},manifest:{size:'${partSizeBytes}'}};
+ const template={schema:'workspace-recover/template/v3',inputs:{partSizeBytes:{required:true,type:'integer'}},manifest:{size:'${partSizeBytes}'}};
  const r=await renderTemplate(template,{partSizeBytes:'not a number'});assert.equal(r.errors.length,1);assert.match(r.errors[0].message,/partSizeBytes.*integer/);
 });
 

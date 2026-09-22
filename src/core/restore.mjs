@@ -3,11 +3,11 @@ import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { assembleParts, extractTarGz } from './archive.mjs';
 import { executeWorkflow, validateWorkflow } from './workflow.mjs';
-import { handoffProviderFromReference, providerFromConfig } from './providers.mjs';
+import { handoffProviderFromReference, providerFromConfig, providerContext, resourceProvider } from './providers.mjs';
 import { targetFromProfile, validateLocalProfile } from './profiles.mjs';
 import { recordInputBatch } from './template.mjs';
 import { SessionStore, terminalState } from './session.mjs';
-import { ensureDir, nowIso, pathExists, readJson, sha256File } from './util.mjs';
+import { ensureDir, nowIso, pathExists, readJson, sha256File, sha256Text, writeJsonAtomic } from './util.mjs';
 
 async function providerReadyOrWait(store, session, provider, profile) {
   try { await provider.ready(); return true; }
@@ -40,7 +40,7 @@ export async function executeRecoveryManifest({
   operation = 'restore',
   freshDownload = false,
 }) {
-  if (recovery?.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
+  if (recovery?.schema !== 'workspace-recover/recovery-manifest/v3') throw new Error('unsupported recovery manifest schema');
   assertRequirements(recovery.requires);
   assertFormat(recovery.transport,'transport-manifest');
   if (!provider) throw new Error('resolved recovery execution requires a provider');
@@ -63,22 +63,32 @@ export async function executeRecoveryManifest({
     throw new Error('provided Drive folder does not match recovery manifest folder');
   }
 
+  await ensureDir(sessionDir);
+  const executionFile=path.join(sessionDir,'recovery-execution.json');
+  const resultFile=path.join(sessionDir,'recovery-result.json');
+  const identity=sha256Text(JSON.stringify({recovery,target:path.resolve(target),operation}));
+  let checkpoint=await pathExists(executionFile)?assertFormat(await readJson(executionFile),'recovery-execution'):{schema:'workspace-recover/recovery-execution/v3',identity,phase:'downloads'};
+  if(checkpoint.identity!==identity)throw new Error('recovery execution differs from frozen manifest/target');
+  if(checkpoint.phase==='completed')return readJson(resultFile);
+  if(['extracting','workflow-running'].includes(checkpoint.phase))throw new Error('Interrupted side-effectful recovery stage; inspect preserved files before a new run, no implicit replay');
+  await writeJsonAtomic(executionFile,checkpoint);
   const downloadDir = await ensureDir(path.join(sessionDir, 'downloads'));
-  const parts = [];
-  for (const part of recovery.transport.parts || []) {
+  const downloadedParts = await Promise.allSettled(recovery.transport.parts.map(async part => {
     const downloaded = path.join(downloadDir, part.fileName);
     const reusable = !freshDownload && await pathExists(downloaded)
       && (await fsp.stat(downloaded)).size === part.bytes
       && await sha256File(downloaded) === part.sha256;
     if (!reusable) {
       await fsp.rm(downloaded, { force: true });
-      await provider.download(part.remote, downloaded, { expectedFolderId: expectedFolder });
+      await provider.download(part.remote, downloaded, { expectedFolderId: expectedFolder, expectedBytes:part.bytes, expectedSha256:part.sha256 });
     }
     const stat = await fsp.stat(downloaded);
     if (stat.size !== part.bytes) throw new Error(`download size mismatch: ${part.fileName}`);
     if (await sha256File(downloaded) !== part.sha256) throw new Error(`download hash mismatch: ${part.fileName}`);
-    parts.push({ ...part, path: downloaded });
-  }
+    return { ...part, path: downloaded };
+  }));
+  const downloadError=downloadedParts.find(x=>x.status==='rejected');if(downloadError)throw downloadError.reason;
+  const parts=downloadedParts.map(x=>x.value);
 
   const archive = path.join(downloadDir, recovery.transport.archive.fileName);
   const assembled = await assembleParts({ parts, output: archive });
@@ -87,29 +97,34 @@ export async function executeRecoveryManifest({
   }
 
   const workspace = path.resolve(target);
-  await extractTarGz({ archive, destination: workspace, rejectExisting: recovery.restore.existingTarget !== 'merge' });
+  if(checkpoint.phase!=='extracted') {
+    checkpoint.phase='extracting';await writeJsonAtomic(executionFile,checkpoint);
+    await extractTarGz({ archive, destination: workspace, rejectExisting: recovery.restore.existingTarget !== 'merge' });
+    checkpoint.phase='extracted';await writeJsonAtomic(executionFile,checkpoint);
+  }
+  checkpoint.phase='workflow-running';await writeJsonAtomic(executionFile,checkpoint);
   const workflow = await executeWorkflow({
     steps: recovery.restore.workflow || [],
     workspace,
     sessionDir: path.join(sessionDir, 'workflow'),
     context: { operation },
   });
-  return { workspace, archive, assembled, workflow };
+  const result={workspace,archive,assembled,workflow};await writeJsonAtomic(resultFile,result);checkpoint.phase='completed';await writeJsonAtomic(executionFile,checkpoint);return result;
 }
 
-export async function startRestore({ handoff, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null }) {
+export async function startRestore({ handoff, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null, execution = {} }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('restore', { handoffReference: handoff, inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
+  const session = await store.create('restore', { execution, handoffReference: handoff, inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
   return store.attempt(session, () => resolveAndRunRestore(store, session));
 }
 
-export async function startRestoreFromManifest({ manifestPath, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null }) {
+export async function startRestoreFromManifest({ manifestPath, target = null, googleProfile = 'default', expectedDriveFolder = null, stateRoot = null, localProfile = null, execution = {} }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('restore', { manifestSource: path.resolve(manifestPath), inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
+  const session = await store.create('restore', { execution, manifestSource: path.resolve(manifestPath), inputs: { target }, googleProfile, expectedDriveFolder, localProfile: localProfile ? structuredClone(validateLocalProfile(localProfile)) : null });
   return store.attempt(session, async () => {
     const raw = await fsp.readFile(manifestPath);
     const recovery = JSON.parse(raw);
-    if (recovery.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
+    if (recovery.schema !== 'workspace-recover/recovery-manifest/v3') throw new Error('unsupported recovery manifest schema');
     session.recoveryManifestPath = await store.write(session.id, 'selected-recovery-manifest.json', raw);
     session.recoveryManifestSha256 = await sha256File(session.recoveryManifestPath);
     await store.save(session);
@@ -133,7 +148,7 @@ async function resolveAndRunRestore(store, session) {
   const sessionDir = store.directory(session.id);
   let recoveryManifestPath = session.recoveryManifestPath;
   if (!recoveryManifestPath) {
-    const handoffProvider = handoffProviderFromReference(session.handoffReference, { googleProfile: session.googleProfile });
+    const handoffProvider = handoffProviderFromReference(session.handoffReference, { googleProfile: session.googleProfile, ...providerContext(store,session,'handoff-source',['gmail.read'],session.execution) });
     if (!await providerReadyOrWait(store, session, handoffProvider, session.googleProfile)) return session;
     const handoffDir = await ensureDir(path.join(sessionDir, 'handoff'));
     const handoff = await handoffProvider.readHandoff(session.handoffReference, handoffDir);
@@ -154,15 +169,15 @@ async function resolveAndRunRestore(store, session) {
     await store.save(session);
   }
   const recovery = await readJson(session.recoveryManifestPath);
-  if (recovery.schema !== 'workspace-recover/recovery-manifest/v2') throw new Error('unsupported recovery manifest schema');
+  if (recovery.schema !== 'workspace-recover/recovery-manifest/v3') throw new Error('unsupported recovery manifest schema');
   assertRequirements(recovery.requires);assertTransport(recovery.transport);validateWorkflow(recovery.restore?.workflow || []);
   const target = session.inputs?.target ?? recovery.restore?.target?.path ?? targetFromProfile(recovery,session.localProfile);
   const targetSource=session.inputs?.target!=null?'operator-input':recovery.restore?.target?.path!=null?'recovery-manifest':'local-profile';
   if (!target || typeof target!=='string' || target.includes('\0')) {
-    return recordInputBatch(store,session,{schema:'workspace-recover/template/v2',name:'restore-inputs',inputs:{target:{type:'path',required:true,description:'New destination directory'}},manifest:{}},{missing:target?[]:['target'],errors:target?[{key:'target',message:'target must be a path string'}]:[],values:{target:target || null},provenance:{}});
+    return recordInputBatch(store,session,{schema:'workspace-recover/template/v3',name:'restore-inputs',inputs:{target:{type:'path',required:true,description:'New destination directory'}},manifest:{}},{missing:target?[]:['target'],errors:target?[{key:'target',message:'target must be a path string'}]:[],values:{target:target || null},provenance:{}});
   }
   if (!session.planFrozen) {
-    const plan = { schema: 'workspace-recover/plan/v2', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), bindings:{target:{value:path.resolve(target),source:targetSource}}, googleProfile:session.googleProfile, expectedDriveFolder:session.expectedDriveFolder, recoveryManifest: recovery };
+    const plan = { schema: 'workspace-recover/plan/v3', operation: 'restore', createdAt: nowIso(), handoffId: session.handoffId || null, recoveryManifestSha256: await sha256File(session.recoveryManifestPath), target: path.resolve(target), bindings:{target:{value:path.resolve(target),source:targetSource}}, googleProfile:session.googleProfile, expectedDriveFolder:session.expectedDriveFolder, recoveryManifest: recovery };
     session.planPath = await store.write(session.id, 'plan.json', plan);
     session.planFrozen = true;
     await store.save(session);
@@ -176,7 +191,7 @@ async function runRestorePlan(store, session, plan) {
   const sessionDir = store.directory(session.id);
   const recovery = plan.recoveryManifest;
   const providerConfig = recovery.transport.provider;
-  const provider = providerFromConfig(providerConfig, providerConfig.type === 'google-workspace' ? { profile: plan.googleProfile || session.googleProfile } : {readOnly:true});
+  const provider = providerFromConfig(resourceProvider(providerConfig), { ...(providerConfig.type === 'google-workspace' ? { profile: plan.googleProfile || session.googleProfile } : {readOnly:true}), ...providerContext(store,session,'restore-artifacts',['drive.download'],session.execution) });
   if (!await providerReadyOrWait(store, session, provider, session.googleProfile)) return session;
 
   const execution = await executeRecoveryManifest({
@@ -189,7 +204,7 @@ async function runRestorePlan(store, session, plan) {
   });
   const { workspace, assembled, workflow } = execution;
   const restoreReceipt = {
-    schema: 'workspace-recover/restore-receipt/v2', sessionId: session.id, target: workspace,
+    schema: 'workspace-recover/restore-receipt/v3', sessionId: session.id, target: workspace,
     archiveVerified: true, restoreStatus: 'success', workflowHardFailure: workflow.hardFailure,
     verificationStatus: workflow.advisoryWarnings ? 'warnings' : 'passed', completedAt: nowIso(),
   };

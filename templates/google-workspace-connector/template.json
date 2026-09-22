@@ -1,0 +1,85 @@
+{
+  "schema": "workspace-recover/template/v3",
+  "name": "google-workspace-connector",
+  "inputs": {
+    "projectName": {
+      "required": true,
+      "example": "demo-project",
+      "type": "string",
+      "description": "Stable project identifier"
+    },
+    "sourcePath": {
+      "required": true,
+      "example": "/work/demo-project",
+      "type": "path",
+      "description": "Absolute workspace source path"
+    },
+    "driveFolderId": {
+      "required": true,
+      "example": "1AbCdEf...",
+      "type": "google-drive-folder",
+      "description": "Google Drive folder ID or canonical URL"
+    },
+    "gmailTo": {
+      "required": true,
+      "example": "operator@example.com",
+      "type": "email",
+      "description": "Handoff recipient mailbox"
+    },
+    "googleProfile": {
+      "default": "default",
+      "example": "default",
+      "type": "string",
+      "description": "Local OAuth profile name"
+    },
+    "partSizeBytes": {
+      "default": 67108864,
+      "example": 67108864,
+      "type": "integer",
+      "description": "Maximum transport part bytes"
+    },
+    "bridgeDirectory": {
+      "required": true,
+      "type": "path",
+      "description": "Private host bridge directory; no Google credentials",
+      "example": "/work/agent-bridge"
+    }
+  },
+  "manifest": {
+    "schema": "workspace-recover/manifest/v3",
+    "name": "${projectName}",
+    "backup": {
+      "source": {
+        "path": "${sourcePath}",
+        "exclude": []
+      },
+      "transport": {
+        "partSizeBytes": "${partSizeBytes}"
+      },
+      "provider": {
+        "type": "google-workspace",
+        "profile": "${googleProfile}",
+        "folderId": "${driveFolderId}",
+        "executor": "connector",
+        "bridge": "${bridgeDirectory}"
+      }
+    },
+    "restore": {
+      "target": {
+        "required": true
+      },
+      "existingTarget": "reject",
+      "workflow": []
+    },
+    "handoff": {
+      "provider": {
+        "type": "google-workspace",
+        "profile": "${googleProfile}",
+        "executor": "connector",
+        "bridge": "${bridgeDirectory}"
+      },
+      "to": "${gmailTo}",
+      "subject": "workspace-recover ${projectName} recovery handoff"
+    }
+  }
+}

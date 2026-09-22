@@ -172,3 +172,15 @@ container/VM sandbox. Команды manifest исполняются с прав
 `/tmp`. Явный `TMPDIR` выбирает другую системную временную папку на Linux.
 Успешная комната удаляется, предупреждение/сбой оставляет её для расследования.
 Это временный каталог, не контейнер и не sandbox.
+
+## Работа через интеграции агента
+
+[Исполнитель connector](docs/connector-execution.md) позволяет агенту обслуживать
+Drive/Gmail без передачи OAuth-реквизитов в CLI. Формы уже входят в поставку:
+`templates/connector/capabilities.example.json`,
+`templates/connector/results.example.json` и
+`templates/google-workspace-connector/values.example.json`.
+
+Самостоятельный Node-процесс не получает доступ к инструментам среды автоматически.
+В этой схеме агент обслуживает запросы работающего процесса; оператор не переносит
+ссылки вручную. В программируемом host используется dispatchCommand.

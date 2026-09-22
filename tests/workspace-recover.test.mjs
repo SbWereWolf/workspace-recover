@@ -69,11 +69,11 @@ async function makeSource(root) {
 
 function localTemplate(source, backupRoot, workflow = []) {
   return {
-    schema: 'workspace-recover/template/v2',
+    schema: 'workspace-recover/template/v3',
     name: 'test-template',
     inputs: {},
     manifest: {
-      schema: 'workspace-recover/manifest/v2',
+      schema: 'workspace-recover/manifest/v3',
       name: 'test',
       backup: { source: { path: source, exclude: [] }, transport: { partSizeBytes: 1024 }, provider: { type: 'local-files', root: backupRoot } },
       restore: { target: { required: true }, existingTarget: 'reject', workflow },
@@ -94,7 +94,7 @@ test('generator creates reusable template and values example', async () => {
   const result = await initializeTemplate({ presetDirectory: path.join(ROOT, 'templates', 'local-project'), outputDirectory: out, name: 'my-backup' });
   assert.equal((await readJson(result.templatePath)).name, 'my-backup');
   const form=await readJson(result.valuesPath);
-  assert.equal(form.schema, 'workspace-recover/values/v2');
+  assert.equal(form.schema, 'workspace-recover/values/v3');
   assert.equal(form.values.sourcePath, null);
   assert.equal(form.values.partSizeBytes, 67108864);
 });

@@ -6,7 +6,7 @@
 
 ```json
 {
-  "schema": "workspace-recover/values/v2",
+  "schema": "workspace-recover/values/v3",
   "values": {
     "workspaceRoot": "/home/operator/work",
     "googleProfile": "personal"

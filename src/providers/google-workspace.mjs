@@ -322,7 +322,8 @@ export class GoogleWorkspaceProvider {
         body = (await gmailPartBytes(this.profile, id, part)).toString('utf8');
       }
     }
-    return { id, body, attachments, raw: data };
+    const header=name=>data.payload?.headers?.find(h=>h.name.toLowerCase()===name)?.value;
+    return { id, body, subject:header('subject'), to:header('to'), attachments, raw: data };
   }
 }
 

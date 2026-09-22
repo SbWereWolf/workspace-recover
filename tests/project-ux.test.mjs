@@ -16,7 +16,7 @@ test('030: init creates portable versioned project and local values; backup need
  const init=cli(project,'init','local','--set',`backupRoot=${objects}`,'--state-dir',state,'--non-interactive');
  assert.equal(init.status,0,init.stderr);assert.match(init.stdout,/Session: wr_i_/);
  const config=JSON.parse(await fsp.readFile(path.join(project,'.workspace-recover/project.json')));
- assert.equal(config.schema,'workspace-recover/project/v2');assert.ok(!JSON.stringify(config).includes(project));
+ assert.equal(config.schema,'workspace-recover/project/v3');assert.ok(!JSON.stringify(config).includes(project));
  assert.match(await fsp.readFile(path.join(project,'.workspace-recover/.gitignore'),'utf8'),/values.local.json/);
  const backup=cli(project,'backup','--state-dir',state);assert.equal(backup.status,0,backup.stderr);assert.match(backup.stdout,/State: completed/);
 });
@@ -25,7 +25,7 @@ test('030: init missing inputs returns one batch and continue completes same ini
  assert.equal(init.status,2,init.stderr); const id=init.stdout.match(/Session: (\S+)/)?.[1];assert.ok(id);
  const next=JSON.parse(cli(project,'next',id,'--json','--state-dir',state).stdout);
  assert.deepEqual(next.next.required.sort(),['driveFolderId','gmailTo']);
- await json(next.next.valuesFile,{schema:'workspace-recover/values/v2',values:{driveFolderId:'abc123',gmailTo:'operator@example.com'}});
+ await json(next.next.valuesFile,{schema:'workspace-recover/values/v3',values:{driveFolderId:'abc123',gmailTo:'operator@example.com'}});
  const done=cli(project,'continue',id,'--values',next.next.valuesFile,'--state-dir',state);assert.equal(done.status,0,done.stderr);assert.match(done.stdout,new RegExp(id));
  await fsp.access(path.join(project,'.workspace-recover/project.json'));
 });
@@ -57,11 +57,11 @@ test('030: no-argument info does not pick another project session',async()=>{
  const r=cli(other,'info','--state-dir',state);assert.notEqual(r.status,0);assert.match(r.stderr,/current session/);
 });
 test('030: shipped presets and values describe the same versioned inputs',async()=>{
- for(const name of ['local','google-workspace']){const r=cli(ROOT,'template','describe',name,'--format','json');assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(r.stdout).schema,'workspace-recover/input-requirements/v2');}
+ for(const name of ['local','google-workspace']){const r=cli(ROOT,'template','describe',name,'--format','json');assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(r.stdout).schema,'workspace-recover/input-requirements/v3');}
 });
 test('030: relocated project binds source to the new project root',async()=>{
  const {d,project,state,objects}=await setup();
- const setupFile=path.join(d,'setup.json');await json(setupFile,{schema:'workspace-recover/values/v2',values:{projectName:null,sourcePath:null,backupRoot:objects}});
+ const setupFile=path.join(d,'setup.json');await json(setupFile,{schema:'workspace-recover/values/v3',values:{projectName:null,sourcePath:null,backupRoot:objects}});
  assert.equal(cli(project,'init','local','--values',setupFile,'--state-dir',state).status,0);
  const moved=path.join(d,'moved');await fsp.rename(project,moved);
  const proc=cli(moved,'backup','--state-dir',state);assert.equal(proc.status,0,proc.stderr);

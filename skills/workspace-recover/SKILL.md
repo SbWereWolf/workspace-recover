@@ -1,7 +1,7 @@
 ---
 name: workspace-recover
 description: Use the standalone workspace-recover application to create verified backups, restore workspaces from handoffs, and inspect resumable session evidence.
-version: 2.4.0
+version: 0.3.0
 ---
 
 # workspace-recover
@@ -81,7 +81,7 @@ Commands from manifests are trusted operator actions, not sandboxed by mkdtemp.
 ## Batch-first input contract
 
 Read the bundled `templates/<preset>/values.example.json` directly; no CLI
-inspection roundtrip is required. Fill all placeholders in one versioned v2
+inspection roundtrip is required. Fill all placeholders in one versioned v3
 values document, then pass `--values FILE --non-interactive`. Multiple values
 files and `--set`/`--set-json` retain ordered provenance. Never issue one prompt
 per missing key when the tool already reports the full missing/error batch.
@@ -152,3 +152,25 @@ sandboxes. Do not alter the author's test/cleanup workflow to hide an archive
 failure. A failed restore preserves partial target data; a failed/warning
 rehearsal preserves its room. Full ERP acceptance is separate from the synthetic
 exact-path reproducer and GNU tar interoperability evidence.
+
+## Connector host execution (v3)
+
+Read [connector operation](../../docs/connector-execution.md). The agent runtime
+may expose Drive/Gmail tools that a standalone Node process cannot call. Never
+claim that importing this CLI grants access to those tools or their tokens.
+
+Use the bundled connector capability form after discovering real host actions.
+Start the CLI with `--executor connector --bridge DIR`. While its process runs,
+read `bridge pending`, execute every available request through authorized host
+tools, and submit a single bound results document. Do not ask the user to copy
+URLs or press continue when the agent can execute the operation. The same process
+continues after results arrive. Use delegated mode only when the host cannot keep
+the CLI process running. Stop at real permission/capability/input boundaries.
+
+For downloads supply freshly downloaded files plus provider ID/parents; never
+copy the local upload source and call that remote verification. For Gmail send
+use exact to/subject/bodyFile/attachment names from the request and text/plain.
+Read the sent message and download requested JSON attachments. Do not attach
+source-code archives. Unknown external outcomes require reconciliation, never
+a blind resend. `info --type connector --full` returns the preserved exchange
+file path. Bridge operations and replies have v3 schemas and request hashes.

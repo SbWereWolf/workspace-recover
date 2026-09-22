@@ -1,5 +1,5 @@
 /** A release accepts exactly one current document family version; no fallback. */
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 export const schema = kind => `workspace-recover/${kind}/v${FORMAT_VERSION}`;
 export function assertFormat(document, kind) {
   if (!document || document.schema !== schema(kind)) {

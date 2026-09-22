@@ -39,6 +39,6 @@ export async function auditDistribution(root=path.resolve(path.dirname(fileURLTo
   const changelog=await fsp.readFile(path.join(root,'CHANGELOG.md'),'utf8');if(!changelog.includes(`## ${pkg.version} `))errors.push('current release is absent from CHANGELOG');
   const readme=await fsp.readFile(path.join(root,'README.md'),'utf8');if(!readme.includes('skills/workspace-recover/SKILL.md'))errors.push('README must link its skill');
   if(errors.length)throw new Error(errors.join('\n'));
-  return {schema:'workspace-recover/distribution-audit/v2',version:pkg.version,markdown,links,json,modules,errors:[]};
+  return {schema:'workspace-recover/distribution-audit/v3',version:pkg.version,markdown,links,json,modules,errors:[]};
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url))console.log(JSON.stringify(await auditDistribution(),null,2));

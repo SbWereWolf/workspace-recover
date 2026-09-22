@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/profile/v2",
+  "$id": "workspace-recover/profile/v3",
   "type": "object",
   "required": [
     "schema"
   ],
   "properties": {
     "schema": {
-      "const": "workspace-recover/profile/v2"
+      "const": "workspace-recover/profile/v3"
     },
     "name": {
       "type": "string"

@@ -1,5 +1,5 @@
 {
-  "schema": "workspace-recover/template/v2",
+  "schema": "workspace-recover/template/v3",
   "name": "local-project",
   "inputs": {
     "projectName": {
@@ -28,7 +28,7 @@
     }
   },
   "manifest": {
-    "schema": "workspace-recover/manifest/v2",
+    "schema": "workspace-recover/manifest/v3",
     "name": "${projectName}",
     "backup": {
       "source": {

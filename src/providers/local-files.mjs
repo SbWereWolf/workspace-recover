@@ -36,7 +36,7 @@ export class LocalFilesProvider {
     return destination;
   }
 
-  async sendHandoff({ sessionId, subject, body, attachments }) {
+  async sendHandoff({ sessionId, to, subject, body, attachments }) {
     const dir = path.join(this.handoffRoot, sessionId);
     await ensureDir(dir);
     await writeTextAtomic(path.join(dir, 'HANDOFF.md'), `${body}\n`, 0o644);
@@ -46,7 +46,7 @@ export class LocalFilesProvider {
       await copyFileVerified(attachment.path, target);
       copied.push({ name: path.basename(target), path: target, sha256: await sha256File(target) });
     }
-    const index = { schema: 'workspace-recover/handoff-local/v2', sessionId, subject, bodyFile: 'HANDOFF.md', attachments: copied };
+    const index = { schema: 'workspace-recover/handoff-local/v3', sessionId, to, subject, bodyFile: 'HANDOFF.md', attachments: copied };
     await writeJsonAtomic(path.join(dir, 'handoff.json'), index, 0o644);
     return { id: dir, url: `file://${dir}`, dir };
   }
@@ -67,6 +67,6 @@ export class LocalFilesProvider {
     }
     const attachments = {};
     for (const item of index.attachments) attachments[item.name] = path.join(readDir, item.name);
-    return { id: dir, body: await fsp.readFile(path.join(readDir, index.bodyFile), 'utf8'), attachments, index };
+    return { id: dir, subject:index.subject, to:index.to, body: await fsp.readFile(path.join(readDir, index.bodyFile), 'utf8'), attachments, index };
   }
 }

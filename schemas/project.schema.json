@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/project/v2",
+  "$id": "workspace-recover/project/v3",
   "type": "object",
   "required": [
     "schema",
@@ -9,7 +9,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "workspace-recover/project/v2"
+      "const": "workspace-recover/project/v3"
     },
     "template": {
       "type": "string"

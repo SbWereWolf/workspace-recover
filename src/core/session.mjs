@@ -18,7 +18,7 @@ export class SessionStore {
     const dir = this.directory(id);
     await ensureDir(dir);
     const session = {
-      schema: 'workspace-recover/session/v2',
+      schema: 'workspace-recover/session/v3',
       id,
       operation,
       state: 'running',
@@ -39,14 +39,15 @@ export class SessionStore {
 
   async save(session) {
     session.updatedAt = nowIso();
-    await writeJsonAtomic(path.join(this.directory(session.id), 'session.json'), session);
+    this.saving=(this.saving || Promise.resolve()).catch(()=>{}).then(()=>writeJsonAtomic(path.join(this.directory(session.id), 'session.json'), session));
+    await this.saving;
     return session;
   }
 
   async remember(id, scope = process.cwd()) {
     this.directory(id);
     const key=sha256Text(path.resolve(scope));
-    await writeJsonAtomic(path.join(this.root,'current',`${key}.json`),{schema:'workspace-recover/current-session/v2',sessionId:id,scope:path.resolve(scope)});
+    await writeJsonAtomic(path.join(this.root,'current',`${key}.json`),{schema:'workspace-recover/current-session/v3',sessionId:id,scope:path.resolve(scope)});
   }
 
   async current(scope = process.cwd()) {
@@ -67,6 +68,11 @@ export class SessionStore {
   async attempt(session, action) {
     try { return await action(); }
     catch (error) {
+      if (['EXTERNAL_PENDING','CAPABILITY_REQUIRED','EXTERNAL_OUTCOME_UNKNOWN'].includes(error?.code)) {
+        session.state=error.code==='CAPABILITY_REQUIRED'?'waiting_for_capability':error.code==='EXTERNAL_OUTCOME_UNKNOWN'?'waiting_for_reconciliation':'waiting_for_connector';
+        session.next={...(session.next||{}),type:'automatic',action:error.code==='EXTERNAL_OUTCOME_UNKNOWN'?'reconcile-external-outcome':'host-connectors',reason:error.message,requestId:error.request?.requestId||null};
+        await this.save(session);return session;
+      }
       const failure = error instanceof Error ? error : new Error(String(error));
       const fullPath = await this.write(session.id, 'error.json', {
         sessionId: session.id, operation: session.operation, failedAt: nowIso(),

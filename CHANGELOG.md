@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — 2026-09-22
+
+- Phase 034: versioned connector bridge, fixed executor routes and resumable external operations.
+- Current document family v3 only; older releases retain their own v2 sessions.
+
+
 ## 0.2.4 — 033 Archive boundaries and PAX
 
 - Fix WR-028-01: lossless long UTF-8 names and link targets with POSIX PAX.

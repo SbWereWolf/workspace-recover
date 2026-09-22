@@ -1,0 +1,12 @@
+{
+  "schema": "workspace-recover/values/v3",
+  "values": {
+    "projectName": null,
+    "sourcePath": null,
+    "driveFolderId": null,
+    "gmailTo": null,
+    "googleProfile": "default",
+    "partSizeBytes": 67108864,
+    "bridgeDirectory": null
+  }
+}

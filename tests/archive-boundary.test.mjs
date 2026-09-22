@@ -20,7 +20,7 @@ async function fixture(t) {
 }
 function cli(f,...args) {return spawnSync(process.execPath,[CLI,...args,'--state-dir',path.join(f.root,'state')],{encoding:'utf8',timeout:15000});}
 async function backup(f) {
- const manifest={schema:'workspace-recover/manifest/v2',name:'boundary-fixture',backup:{source:{path:f.source,exclude:[]},provider:{type:'local-files',root:path.join(f.root,'objects')}},restore:{existingTarget:'reject',workflow:[]},handoff:{provider:{type:'local-files',root:path.join(f.root,'objects')},subject:'test'}};
+ const manifest={schema:'workspace-recover/manifest/v3',name:'boundary-fixture',backup:{source:{path:f.source,exclude:[]},provider:{type:'local-files',root:path.join(f.root,'objects')}},restore:{existingTarget:'reject',workflow:[]},handoff:{provider:{type:'local-files',root:path.join(f.root,'objects')},subject:'test'}};
  const p=path.join(f.root,'backup.json');await fsp.writeFile(p,JSON.stringify(manifest));const result=cli(f,'backup',p);
  assert.equal(result.status,0,result.stdout+result.stderr);
  const ids=await fsp.readdir(path.join(f.root,'state/sessions'));const id=ids.find(n=>n.startsWith('wr_b_'));assert.ok(id);

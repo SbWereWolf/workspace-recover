@@ -1,0 +1,12 @@
+{
+  "schema": "workspace-recover/connector-results/v3",
+  "results": [
+    {
+      "requestId": null,
+      "requestHash": null,
+      "sessionId": null,
+      "status": "completed",
+      "result": {}
+    }
+  ]
+}

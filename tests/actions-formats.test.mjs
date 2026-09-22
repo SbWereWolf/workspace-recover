@@ -10,7 +10,7 @@ import { renderTemplate } from '../src/core/template.mjs';
 import { SessionStore } from '../src/core/session.mjs';
 const tmp=()=>fsp.mkdtemp(path.join(os.tmpdir(),'wr-action-'));
 async function fixture(){const d=await tmp();const src=path.join(d,'src');await fsp.mkdir(src);await fsp.writeFile(path.join(src,'data'),'abc');return {d,src,stateRoot:path.join(d,'state'),manifestPath:path.join(d,'m.json')};}
-function manifest(f, workflow) {return {schema:'workspace-recover/manifest/v2',name:'declarative',backup:{source:{path:f.src},provider:{type:'local-files',root:path.join(f.d,'objects')}},restore:{workflow},handoff:{provider:{type:'local-files',root:path.join(f.d,'objects')}}};}
+function manifest(f, workflow) {return {schema:'workspace-recover/manifest/v3',name:'declarative',backup:{source:{path:f.src},provider:{type:'local-files',root:path.join(f.d,'objects')}},restore:{workflow},handoff:{provider:{type:'local-files',root:path.join(f.d,'objects')}}};}
 const write=(p,v)=>fsp.writeFile(p,JSON.stringify(v));
 test('031: named actions/reporters expand to a frozen explicit recovery workflow',async()=>{
  const f=await fixture();const m=manifest(f,['test','cleanup']);
@@ -27,7 +27,7 @@ test('031: unknown action rejects before archiving or running an earlier step',a
  await assert.rejects(startBackupFromManifest(f),/unknown action/);
 });
 test('031: action runtime placeholders remain late-bound in templates',async()=>{
- const t={schema:'workspace-recover/template/v2',inputs:{who:{type:'string'}},manifest:{schema:'workspace-recover/manifest/v2',actions:{a:{type:'verification',exec:['node','${workspace}/test.mjs','${who}']}},restore:{workflow:['a']}}};
+ const t={schema:'workspace-recover/template/v3',inputs:{who:{type:'string'}},manifest:{schema:'workspace-recover/manifest/v3',actions:{a:{type:'verification',exec:['node','${workspace}/test.mjs','${who}']}},restore:{workflow:['a']}}};
  const r=await renderTemplate(t,{who:'operator'});assert.deepEqual(r.missing,[]);assert.equal(r.manifest.actions.a.exec[1],'${workspace}/test.mjs');
 });
 test('031: TAP reporter gives actual diagnostic totals, not generic trailing lines',async()=>{
@@ -41,11 +41,11 @@ test('031: JUnit testsuites wrapper aggregates child suites without losing total
 });
 test('031: transport version is checked before any provider access',async()=>{
  const d=await tmp();let calls=0;
- const r={schema:'workspace-recover/recovery-manifest/v2',transport:{schema:'workspace-recover/transport-manifest/v1',archive:{fileName:'a.tar.gz'},parts:[{index:0,fileName:'p'}]},restore:{workflow:[]}};
+ const r={schema:'workspace-recover/recovery-manifest/v3',transport:{schema:'workspace-recover/transport-manifest/v1',archive:{fileName:'a.tar.gz'},parts:[{index:0,fileName:'p'}]},restore:{workflow:[]}};
  await assert.rejects(executeRecoveryManifest({recovery:r,target:path.join(d,'out'),sessionDir:path.join(d,'s'),provider:{download:async()=>{calls++;}}}),/transport.*schema/);assert.equal(calls,0);
 });
 test('031: unsupported required capability rejects before provider access',async()=>{
- const d=await tmp();let calls=0;const r={schema:'workspace-recover/recovery-manifest/v2',requires:{formatVersion:2,features:['time-travel']},transport:{schema:'workspace-recover/transport-manifest/v2'},restore:{workflow:[]}};
+ const d=await tmp();let calls=0;const r={schema:'workspace-recover/recovery-manifest/v3',requires:{formatVersion:3,features:['time-travel']},transport:{schema:'workspace-recover/transport-manifest/v3'},restore:{workflow:[]}};
  await assert.rejects(executeRecoveryManifest({recovery:r,target:path.join(d,'out'),sessionDir:path.join(d,'s'),provider:{download:async()=>{calls++;}}}),/capability|feature/i);assert.equal(calls,0);
 });
 test('031: unknown frozen plan version is rejected without rereading author manifest',async()=>{
@@ -62,7 +62,7 @@ test('031: full backup cleanup and restore of read-only directories run without 
  const restoreModule=pathToFileURL(path.join(src,'core/restore.mjs')).href;
  const script=`import fs from 'node:fs/promises';import {startBackupFromManifest} from ${JSON.stringify(backupModule)};import {startRestore} from ${JSON.stringify(restoreModule)};
  const base=${JSON.stringify(d)};const source=base+'/source';await fs.mkdir(source);await fs.mkdir(source+'/locked');await fs.writeFile(source+'/locked/data','exact');await fs.chmod(source+'/locked/data',0o444);await fs.chmod(source+'/locked',0o555);await fs.chmod(source,0o711);
- const m={schema:'workspace-recover/manifest/v2',backup:{source:{path:source},provider:{type:'local-files',root:base+'/objects'}},restore:{workflow:[]},handoff:{provider:{type:'local-files',root:base+'/objects'}}};const mp=base+'/manifest.json';await fs.writeFile(mp,JSON.stringify(m));const b=await startBackupFromManifest({manifestPath:mp,stateRoot:base+'/state'});if(b.state!=='completed')throw new Error(b.state);const r=await startRestore({handoff:b.handoff.url,target:base+'/restored',stateRoot:base+'/state'});if(r.state!=='completed')throw new Error(r.state);console.log(JSON.stringify({backup:b.state,restore:r.state}));`;
+ const m={schema:'workspace-recover/manifest/v3',backup:{source:{path:source},provider:{type:'local-files',root:base+'/objects'}},restore:{workflow:[]},handoff:{provider:{type:'local-files',root:base+'/objects'}}};const mp=base+'/manifest.json';await fs.writeFile(mp,JSON.stringify(m));const b=await startBackupFromManifest({manifestPath:mp,stateRoot:base+'/state'});if(b.state!=='completed')throw new Error(b.state);const r=await startRestore({handoff:b.handoff.url,target:base+'/restored',stateRoot:base+'/state'});if(r.state!=='completed')throw new Error(r.state);console.log(JSON.stringify({backup:b.state,restore:r.state}));`;
  const options={encoding:'utf8',cwd:d};if(process.getuid?.()===0){options.uid=65534;options.gid=65534;}
  const out=spawnSync(process.execPath,['--input-type=module','-e',script],options);assert.equal(out.status,0,out.stderr);
  assert.equal((await fsp.stat(path.join(d,'restored'))).mode&0o7777,0o711);

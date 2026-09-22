@@ -1,3 +1,4 @@
+import {initializeBridge, pendingRequests, submitResults} from './core/bridge.mjs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
@@ -41,7 +42,7 @@ function parseArgs(argv) {
   const positional=[], options={};
   const flags=new Set(['no-browser','non-interactive','interactive','json','short','full']);
   const multiple=new Set(['values','set','set-json']);
-  const allowed=new Set(['state-dir','output','preset','target','google-profile','drive-folder','handoff','manifest','view','type','profile','client','format','editor','project-dir','template', ...multiple]);
+  const allowed=new Set(['bridge','capabilities','results','executor','state-dir','output','preset','target','google-profile','drive-folder','handoff','manifest','view','type','profile','client','format','editor','project-dir','template', ...multiple]);
   for(let i=0;i<argv.length;i++) {
     const arg=argv[i];
     if(!arg.startsWith('--')){positional.push(arg);continue;}
@@ -75,6 +76,10 @@ function usage() {
   return `workspace-recover
 
 Commands:
+  bridge init --bridge DIR --capabilities FILE
+  bridge pending --bridge DIR [SESSION] --json
+  bridge submit --bridge DIR --results FILE
+  backup/restore: --executor direct|connector|delegated|auto --bridge DIR
   init <local|google-workspace|template> [--values FILE ...] [--project-dir DIR] [--interactive]
   template init <name> --preset <preset> [--output <dir>]
   template list
@@ -152,10 +157,12 @@ async function commandTemplate(args) {
 async function commandInit(args) {
   const templatePath=await resolveTemplateReference(args.positional[1] || 'local');
   const values=await loadValues(args.options.values,args.options.set || [],args.options.setJson || []);
-  let session=await startProjectInit({templatePath,values,projectRoot:args.options.projectDir || process.cwd(),stateRoot:args.options.stateDir});
+  let session=await startProjectInit({templatePath,values,projectRoot:args.options.projectDir || process.cwd(),stateRoot:args.options.stateDir,execution:executionOptions(args.options)});
   session=await maybeEditBatch(session,args.options);printSession(session,args.options);
   return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
 }
+
+function executionOptions(options) {return {...(options.executor?{executor:options.executor}:{}),...(options.bridge?{bridge:path.resolve(options.bridge)}:{})};}
 
 async function commandBackup(args) {
   let templateRef = args.positional[1] || args.options.template;
@@ -163,7 +170,7 @@ async function commandBackup(args) {
     const project=await discoverProject();
     if(!project)throw new Error('Project configuration not found. Run workspace-recover init, or supply a template.');
     const values=await projectValues(project,args.options);
-    let session=await startBackup({templatePath:path.resolve(project.directory,project.document.template),values,stateRoot:args.options.stateDir});
+    let session=await startBackup({templatePath:path.resolve(project.directory,project.document.template),values,stateRoot:args.options.stateDir,execution:executionOptions(args.options)});
     session=await maybeEditBatch(session,args.options);
     await new SessionStore(args.options.stateDir || undefined).remember(session.id,project.root);
     printSession(session,args.options);return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
@@ -172,17 +179,17 @@ async function commandBackup(args) {
   const direct = path.resolve(templateRef);
   if (await pathExists(direct)) {
     const document = JSON.parse(await fsp.readFile(direct, 'utf8'));
-    if (document.schema === 'workspace-recover/manifest/v2') {
+    if (document.schema === 'workspace-recover/manifest/v3') {
       if (args.options.values || (args.options.set || []).length || (args.options.setJson || []).length) throw new Error('--values/--set are for templates; a rendered manifest is already complete');
-      session = await startBackupFromManifest({ manifestPath: direct, stateRoot: args.options.stateDir });
+      session = await startBackupFromManifest({ manifestPath: direct, stateRoot: args.options.stateDir, execution:executionOptions(args.options) });
     } else {
       const values = await loadValues(args.options.values, args.options.set || [], args.options.setJson || []);
-      session = await startBackup({ templatePath: direct, values, stateRoot: args.options.stateDir });
+      session = await startBackup({ templatePath: direct, values, stateRoot: args.options.stateDir, execution:executionOptions(args.options) });
     }
   } else {
     const templatePath = await resolveTemplateReference(templateRef);
     const values = await loadValues(args.options.values, args.options.set || [], args.options.setJson || []);
-    session = await startBackup({ templatePath, values, stateRoot: args.options.stateDir });
+    session = await startBackup({ templatePath, values, stateRoot: args.options.stateDir, execution:executionOptions(args.options) });
   }
   session=await maybeEditBatch(session,args.options);
   printSession(session, args.options);
@@ -208,7 +215,7 @@ async function commandRestore(args) {
   const start=manifestPath?startRestoreFromManifest:startRestore;
   let session=await start({manifestPath,handoff,target:args.options.target ?? supplied.target ?? null,
     googleProfile:args.options.googleProfile || localProfile?.googleProfile || 'default',
-    localProfile,expectedDriveFolder:args.options.driveFolder || null,stateRoot:args.options.stateDir});
+    localProfile,expectedDriveFolder:args.options.driveFolder || null,stateRoot:args.options.stateDir,execution:executionOptions(args.options)});
   session=await maybeEditBatch(session,args.options);printSession(session,args.options);
   return session.state==='failed'?1:session.state.startsWith('waiting_')?2:0;
 }
@@ -222,6 +229,8 @@ async function commandContinue(args) {
   const store = new SessionStore(args.options.stateDir || undefined);
   const id = await contextSession(args,store);
   const session = await store.load(id);
+  if(args.options.executor || args.options.bridge)throw new Error('continue uses the stored executor, not a new override');
+  if(args.options.results) {const bridge=session.execution?.bridge || session.next?.bridge;if(!bridge)throw new Error('session has no connector bridge');await submitResults(bridge,JSON.parse(await fsp.readFile(args.options.results,'utf8')));}
   const values = await loadValues(args.options.values, args.options.set || [], args.options.setJson || []);
   let result = session.operation === 'init' ? await continueProjectInit(store,session,values) : session.operation === 'backup'
     ? await continueBackup(store, session, values)
@@ -306,11 +315,25 @@ async function commandProfile(args) {
   throw new Error('profile requires create, show or list');
 }
 
+
+async function commandBridge(args) {
+  const root=args.options.bridge;if(!root)throw new Error('bridge requires --bridge DIR');
+  let result;
+  switch(args.positional[1]) {
+    case 'init': if(!args.options.capabilities)throw new Error('bridge init requires --capabilities FILE');result=await initializeBridge(root,JSON.parse(await fsp.readFile(args.options.capabilities,'utf8')));break;
+    case 'pending':result=await pendingRequests(root,{sessionId:args.positional[2]||null});break;
+    case 'submit': if(!args.options.results)throw new Error('bridge submit requires --results FILE');result=await submitResults(root,JSON.parse(await fsp.readFile(args.options.results,'utf8')));break;
+    default:throw new Error('bridge requires init, pending or submit');
+  }
+  process.stdout.write(JSON.stringify(result,null,2)+'\n');return 0;
+}
+
 export async function main(argv) {
   if (!argv.length || ['-h', '--help', 'help'].includes(argv[0])) { process.stdout.write(usage()); return 0; }
   if(argv.length===1 && ['--version','version'].includes(argv[0])){process.stdout.write(JSON.parse(await fsp.readFile(path.join(APP_ROOT,'package.json'),'utf8')).version+'\n');return 0;}
   const args = parseArgs(argv);
   switch (args.positional[0]) {
+    case 'bridge': return commandBridge(args);
     case 'profile': return commandProfile(args);
     case 'init': return commandInit(args);
     case 'template': return commandTemplate(args);

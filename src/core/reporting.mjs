@@ -142,7 +142,7 @@ export async function buildStepReport({ result, report = { profile: 'command-out
         await fsp.copyFile(source,saved);await fsp.chmod(saved,0o600);
         artifacts.push({name:relative,path:saved,bytes:(await fsp.stat(saved)).size,sha256:await sha256File(saved)});
       }
-      fullPath=path.join(reportDir,'artifacts.json');await writeJsonAtomic(fullPath,{schema:'workspace-recover/artifact-report/v2',artifacts});
+      fullPath=path.join(reportDir,'artifacts.json');await writeJsonAtomic(fullPath,{schema:'workspace-recover/artifact-report/v3',artifacts});
       short=`${artifacts.length} artifacts; ${artifacts.reduce((n,x)=>n+x.bytes,0)} bytes`;
       medium=`${short}\n${artifacts.map(x=>`${x.name}: ${x.bytes} bytes; SHA256 ${x.sha256}`).join('\n')}`;
       break;

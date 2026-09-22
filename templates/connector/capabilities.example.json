@@ -1,0 +1,11 @@
+{
+  "schema": "workspace-recover/bridge-capabilities/v3",
+  "account": null,
+  "operations": [
+    "drive.upload",
+    "drive.download",
+    "drive.metadata",
+    "gmail.send",
+    "gmail.read"
+  ]
+}

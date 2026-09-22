@@ -31,6 +31,6 @@ export function compileManifest(document) {
   validateWorkflow(expanded);
   manifest.restore={...manifest.restore,workflow:expanded};
   delete manifest.actions;delete manifest.reporters;
-  manifest.requires??={formatVersion:2,features:['advisory-workflow','saved-reports']};
+  manifest.requires??={formatVersion:3,features:['advisory-workflow','saved-reports']};
   return manifest;
 }

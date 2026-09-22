@@ -89,7 +89,7 @@ workspace-recover restore --manifest edited-recovery.json --target /work/new-tar
 ## Именованные действия
 
 Следующий фрагмент добавляется в author manifest текущего формата
-`workspace-recover/manifest/v2`:
+`workspace-recover/manifest/v3`:
 
 ```json
 {

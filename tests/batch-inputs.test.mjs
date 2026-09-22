@@ -10,7 +10,7 @@ import { startBackup, continueBackup } from '../src/core/backup.mjs';
 import { SessionStore } from '../src/core/session.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(ROOT, 'bin/workspace-recover.mjs');
-const schema = kind => `workspace-recover/${kind}/v2`;
+const schema = kind => `workspace-recover/${kind}/v3`;
 const tmp = () => fsp.mkdtemp(path.join(os.tmpdir(), 'wr-batch-test-'));
 const put = (p, v) => fsp.writeFile(p, JSON.stringify(v));
 const values = v => ({ schema: schema('values'), values: v });

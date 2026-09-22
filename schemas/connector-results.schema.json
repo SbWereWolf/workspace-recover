@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workspace-recover/connector-results/v3",
+  "type": "object",
+  "required": [
+    "schema",
+    "results"
+  ],
+  "properties": {
+    "schema": {
+      "const": "workspace-recover/connector-results/v3"
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "requestId",
+          "requestHash",
+          "status"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^rq_[a-f0-9]{64}$"
+          },
+          "requestHash": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "failed",
+              "unknown"
+            ]
+          },
+          "result": {
+            "type": "object"
+          },
+          "error": {
+            "type": "string"
+          },
+          "resolvesSha256": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

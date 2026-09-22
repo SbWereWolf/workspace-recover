@@ -8,13 +8,13 @@ import fsp from 'node:fs/promises';
 import { createTarGz, splitFile } from './archive.mjs';
 import { validateWorkflow } from './workflow.mjs';
 import { executeRecoveryManifest } from './restore.mjs';
-import { providerFromConfig } from './providers.mjs';
+import { providerFromConfig, providerContext, resourceProvider } from './providers.mjs';
 import { INPUT_PROVENANCE, loadTemplate, renderTemplate, recordInputBatch } from './template.mjs';
 import { SessionStore, terminalState } from './session.mjs';
 import { deepMerge, ensureDir, nowIso, pathExists, readJson, sha256File, sha256Text, writeJsonAtomic, writeTextAtomic } from './util.mjs';
 
 function manifestValidate(manifest) {
-  if (manifest?.schema !== 'workspace-recover/manifest/v2') throw new Error('manifest schema must be workspace-recover/manifest/v2');
+  if (manifest?.schema !== 'workspace-recover/manifest/v3') throw new Error('manifest schema must be workspace-recover/manifest/v3');
   if (!manifest.backup?.source?.path) throw new Error('manifest.backup.source.path is required');
   if (!manifest.backup?.provider?.type) throw new Error('manifest.backup.provider.type is required');
   if (!manifest.handoff?.provider?.type) throw new Error('manifest.handoff.provider.type is required');
@@ -33,7 +33,7 @@ async function freezePlan(store, session, manifest) {
   const manifestPath = await store.write(session.id, 'manifest.json', manifest);
   const manifestText = await fsp.readFile(manifestPath, 'utf8');
   const plan = {
-    schema: 'workspace-recover/plan/v2',
+    schema: 'workspace-recover/plan/v3',
     operation: 'backup',
     createdAt: nowIso(),
     manifestSha256: sha256Text(manifestText),
@@ -71,9 +71,9 @@ async function verifyHandoffReadback(provider, handoff, expected) {
   return readback;
 }
 
-export async function startBackupFromManifest({ manifestPath, stateRoot = null }) {
+export async function startBackupFromManifest({ manifestPath, stateRoot = null, execution = {} }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('backup', { manifestSource: path.resolve(manifestPath), inputs: {} });
+  const session = await store.create('backup', { manifestSource: path.resolve(manifestPath), inputs: {}, execution });
   return store.attempt(session, async () => {
     const manifest = await readJson(manifestPath);
     const plan = await freezePlan(store, session, manifest);
@@ -81,13 +81,13 @@ export async function startBackupFromManifest({ manifestPath, stateRoot = null }
   });
 }
 
-export async function startBackup({ templatePath, values, stateRoot = null }) {
+export async function startBackup({ templatePath, values, stateRoot = null, execution = {} }) {
   const store = new SessionStore(stateRoot || undefined);
-  const session = await store.create('backup', { templateSource: path.resolve(templatePath), inputs: values || {}, inputProvenance: values?.[INPUT_PROVENANCE] || {} });
+  const session = await store.create('backup', { execution, templateSource: path.resolve(templatePath), inputs: values || {}, inputProvenance: values?.[INPUT_PROVENANCE] || {} });
   return store.attempt(session, async () => {
     const template = await loadTemplate(templatePath);
     await store.write(session.id, 'template.json', template);
-    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v2',values:values || {}});
+    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v3',values:values || {}});
     return resolveAndRunBackup(store, session, template, values || {});
   });
 }
@@ -100,11 +100,11 @@ export async function continueBackup(store, session, setValues = {}) {
     if (session.planFrozen) return runBackupPlan(store, session, assertFormat(await readJson(session.planPath),'plan'));
     const template = await readJson(path.join(store.directory(session.id), 'template.json'));
     const priorDocument = await readJson(path.join(store.directory(session.id), 'values.json'));
-    if (priorDocument.schema !== 'workspace-recover/values/v2') throw new Error('unsupported values schema');
+    if (priorDocument.schema !== 'workspace-recover/values/v3') throw new Error('unsupported values schema');
     const priorValues=priorDocument.values;
     const values = deepMerge(priorValues, setValues);
     for (const [k,v] of Object.entries(setValues[INPUT_PROVENANCE] || {})) (session.inputProvenance[k]??=[]).push(...v);
-    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v2',values});
+    await store.write(session.id, 'values.json', {schema:'workspace-recover/values/v3',values});
     return resolveAndRunBackup(store, session, template, values);
   });
 }
@@ -119,184 +119,86 @@ async function resolveAndRunBackup(store, session, template, values) {
 }
 
 async function runBackupPlan(store, session, plan) {
-  if (['completed', 'completed_with_warnings', 'failed'].includes(session.state)) return session;
-  session.state = 'running';
-  session.next = null;
-  await store.save(session);
-  const manifest = plan.manifest;
-  const sessionDir = store.directory(session.id);
-  const provider = providerFromConfig(manifest.backup.provider);
-  if (!await providerReadyOrWait(store, session, provider)) return session;
-  const handoffProvider = providerFromConfig(manifest.handoff.provider);
-  if (!await providerReadyOrWait(store, session, handoffProvider)) return session;
-
-  const artifactDir = await ensureDir(path.join(sessionDir, 'artifacts'));
-  const archivePath = path.join(artifactDir, 'workspace-backup.tar.gz');
-  let archiveInfo = session.progress?.archive;
-  if (!archiveInfo || !await pathExists(archivePath) || await sha256File(archivePath) !== archiveInfo.sha256) {
-    archiveInfo = await createTarGz({
-      source: path.resolve(manifest.backup.source.path),
-      output: archivePath,
-      excludes: manifest.backup.source.exclude || [],
-    });
-    session.progress = { ...(session.progress || {}), archive: archiveInfo };
-    await store.save(session);
+  if(terminalState(session.state))return session;
+  session.state='running';session.next=null;session.progress??={};await store.save(session);
+  const manifest=plan.manifest, progress=session.progress, sessionDir=store.directory(session.id);
+  const provider=providerFromConfig(manifest.backup.provider,providerContext(store,session,'artifacts',['drive.upload','drive.download'],session.execution));
+  const mail=providerFromConfig(manifest.handoff.provider,providerContext(store,session,'handoff',['gmail.send','gmail.read'],session.execution));
+  if(!await providerReadyOrWait(store,session,provider)||!await providerReadyOrWait(store,session,mail))return session;
+  const artifactDir=await ensureDir(path.join(sessionDir,'artifacts'));
+  const archivePath=path.join(artifactDir,'workspace-backup.tar.gz');
+  if(!progress.archive) {
+    progress.archive=await createTarGz({source:path.resolve(manifest.backup.source.path),output:archivePath,excludes:manifest.backup.source.exclude||[]});await store.save(session);
+  } else if(!await pathExists(archivePath)||await sha256File(archivePath)!==progress.archive.sha256)throw new Error('captured archive changed or disappeared; do not recapture a frozen backup');
+  if(!progress.parts) {progress.parts=await splitFile({file:archivePath,outputDirectory:path.join(artifactDir,'parts'),maxPartBytes:manifest.backup.transport?.partSizeBytes||64*1024*1024});await store.save(session);}
+  progress.uploadedParts??=[];
+  const uploads=await Promise.allSettled(progress.parts.map(async part=>{
+    if(progress.uploadedParts[part.index]?.id)return;
+    const remote=await provider.upload(part.path,{name:`${session.id}-${part.fileName}`,folderId:manifest.backup.provider.folderId});
+    progress.uploadedParts[part.index]={...remote,index:part.index,bytes:part.bytes,sha256:part.sha256,fileName:part.fileName};await store.save(session);
+  }));
+  const failed=uploads.find(x=>x.status==='rejected');if(failed)throw failed.reason;
+  const transport={schema:'workspace-recover/transport-manifest/v3',archive:{fileName:path.basename(archivePath),bytes:progress.archive.bytes,sha256:progress.archive.sha256,format:'tar.gz'},
+    provider:resourceProvider(manifest.backup.provider),parts:progress.uploadedParts.map(p=>({index:p.index,fileName:p.fileName,bytes:p.bytes,sha256:p.sha256,remote:{id:p.id,url:p.url,parent:p.parent}}))};
+  const transportPath=await store.write(session.id,'transport-manifest.json',transport);
+  if(!progress.transportRemote){progress.transportRemote=await provider.upload(transportPath,{name:`workspace-recover-${session.id}-transport-manifest.json`,folderId:manifest.backup.provider.folderId});await store.save(session);}
+  const recoveryPath=path.join(sessionDir,'workspace-recovery-manifest.json');
+  let recovery;
+  if(progress.recoveryManifestSha256) {
+    if(await sha256File(recoveryPath)!==progress.recoveryManifestSha256)throw new Error('frozen recovery manifest changed');recovery=await readJson(recoveryPath);
+  } else {
+    recovery={schema:'workspace-recover/recovery-manifest/v3',backupSessionId:session.id,createdAt:nowIso(),transport,
+      requires:{formatVersion:3,features:[...new Set([...(manifest.requires?.features||[]),'pax-paths','safe-merge'])]},project:{name:manifest.name||'workspace'},
+      restore:{existingTarget:manifest.restore.existingTarget||'reject',target:manifest.restore.target||{required:true},workflow:manifest.restore.workflow||[]}};
+    await store.write(session.id,'workspace-recovery-manifest.json',recovery);progress.recoveryManifestSha256=await sha256File(recoveryPath);await store.save(session);
   }
-
-  const partDir = path.join(artifactDir, 'parts');
-  let parts = session.progress?.parts;
-  if (!parts?.length) {
-    parts = await splitFile({ file: archivePath, outputDirectory: partDir, maxPartBytes: manifest.backup.transport?.partSizeBytes || 64 * 1024 * 1024 });
-    session.progress.parts = parts;
-    await store.save(session);
+  const rehearsalReceiptPath=path.join(sessionDir,'rehearsal-receipt.json');
+  const rehearsalResultPath=path.join(sessionDir,'rehearsal-result.json');
+  let execution,receipt;
+  if(progress.rehearsalCompleted) {execution=await readJson(rehearsalResultPath);receipt=await readJson(rehearsalReceiptPath);}
+  else {
+    if(!progress.rehearsal){const root=await createCleanRoom(session.id);progress.rehearsal={cleanRoom:root,workspace:path.join(root,'workspace'),state:'running'};await store.save(session);}
+    const root=progress.rehearsal.cleanRoom;
+    try {
+      execution=await executeRecoveryManifest({recovery,target:progress.rehearsal.workspace,sessionDir:path.join(sessionDir,'rehearsal'),provider,expectedDriveFolder:manifest.backup.provider.folderId||null,operation:'rehearsal',freshDownload:true});
+    }catch(error){
+      if(['EXTERNAL_PENDING','CAPABILITY_REQUIRED','EXTERNAL_OUTCOME_UNKNOWN'].includes(error?.code))throw error;
+      progress.rehearsal.state='failed';await store.write(session.id,'rehearsal-receipt.json',{schema:'workspace-recover/rehearsal-receipt/v3',sessionId:session.id,cleanRoom:root,cleanRoomPreserved:await pathExists(root),restoreStatus:'failed',verificationStatus:'not_run',error:error.message,completedAt:nowIso()});throw error;
+    }
+    const clean=!execution.workflow.hardFailure&&!execution.workflow.advisoryWarnings;
+    receipt={schema:'workspace-recover/rehearsal-receipt/v3',sessionId:session.id,cleanRoom:root,restoreStatus:'success',verificationStatus:execution.workflow.advisoryWarnings?'warnings':'passed',workflowHardFailure:execution.workflow.hardFailure,cleanRoomPreserved:!clean,completedAt:nowIso()};
+    await store.write(session.id,'rehearsal-result.json',execution);
+    if(clean){await removeCleanRoom(root);receipt.cleanRoom=null;}
+    await store.write(session.id,'rehearsal-receipt.json',receipt);progress.rehearsal.state=clean?'completed':'completed_with_warnings';progress.rehearsal.cleanRoom=receipt.cleanRoom;progress.rehearsalCompleted=true;await store.save(session);
   }
-
-  let uploadedParts = session.progress?.uploadedParts || [];
-  for (const part of parts) {
-    if (uploadedParts[part.index]?.id) continue;
-    const remote = await provider.upload(part.path, { name: `${session.id}-${part.fileName}`, folderId: manifest.backup.provider.folderId });
-    uploadedParts[part.index] = { ...remote, index: part.index, bytes: part.bytes, sha256: part.sha256, fileName: part.fileName };
-    session.progress.uploadedParts = uploadedParts;
-    await store.save(session);
-  }
-
-  const transport = {
-    schema: 'workspace-recover/transport-manifest/v2',
-    archive: { fileName: path.basename(archivePath), bytes: archiveInfo.bytes, sha256: archiveInfo.sha256, format: 'tar.gz' },
-    provider: manifest.backup.provider,
-    parts: uploadedParts.map(item => ({ index: item.index, fileName: item.fileName, bytes: item.bytes, sha256: item.sha256, remote: { id: item.id, url: item.url, parent: item.parent } })),
-  };
-  const transportPath = await store.write(session.id, 'transport-manifest.json', transport);
-  let transportRemote = session.progress?.transportRemote;
-  if (!transportRemote?.id) {
-    transportRemote = await provider.upload(transportPath, { name: `workspace-recover-${session.id}-transport-manifest.json`, folderId: manifest.backup.provider.folderId });
-    session.progress.transportRemote = transportRemote;
-    await store.save(session);
-  }
-
-  const recoveryManifest = {
-    schema: 'workspace-recover/recovery-manifest/v2',
-    backupSessionId: session.id,
-    createdAt: nowIso(),
-    transport,
-    requires: {formatVersion:2, features:[...new Set([...(manifest.requires?.features || []),'pax-paths','safe-merge'])]},
-    project: {name:manifest.name || 'workspace'},
-    restore: {
-      existingTarget: manifest.restore.existingTarget || 'reject',
-      target: manifest.restore.target || { required: true },
-      workflow: manifest.restore.workflow || [],
-    },
-  };
-  const recoveryManifestPath = await store.write(session.id, 'workspace-recovery-manifest.json', recoveryManifest);
-
-  const cleanRoot = await createCleanRoom(session.id);
-  const cleanWorkspace = path.join(cleanRoot, 'workspace');
-  session.progress.rehearsal = { cleanRoom: cleanRoot, workspace: cleanWorkspace, state: 'running' };
-  await store.save(session);
-  let rehearsalExecution;
-  try {
-    rehearsalExecution = await executeRecoveryManifest({
-    recovery: recoveryManifest,
-    target: cleanWorkspace,
-    sessionDir: path.join(sessionDir, 'rehearsal'),
-    provider,
-    expectedDriveFolder: manifest.backup.provider.folderId || null,
-    operation: 'rehearsal',
-    freshDownload: true,
-    });
-  } catch (error) {
-    session.progress.rehearsal.state = 'failed';
-    await store.write(session.id, 'rehearsal-receipt.json', {
-      schema: 'workspace-recover/rehearsal-receipt/v2', sessionId: session.id,
-      cleanRoom: cleanRoot, cleanRoomPreserved: await pathExists(cleanRoot),
-      restoreStatus: 'failed', verificationStatus: 'not_run', error: error.message, completedAt: nowIso(),
-    });
-    throw error;
-  }
-  const rehearsalWorkflow = rehearsalExecution.workflow;
-  const rehearsalClean = !rehearsalWorkflow.hardFailure && !rehearsalWorkflow.advisoryWarnings;
-  const rehearsalReceipt = {
-    schema: 'workspace-recover/rehearsal-receipt/v2',
-    sessionId: session.id,
-    cleanRoom: cleanRoot,
-    restoreStatus: 'success',
-    verificationStatus: rehearsalWorkflow.advisoryWarnings ? 'warnings' : 'passed',
-    workflowHardFailure: rehearsalWorkflow.hardFailure,
-    cleanRoomPreserved: !rehearsalClean,
-    completedAt: nowIso(),
-  };
-  if (rehearsalClean) {
-    await removeCleanRoom(cleanRoot);
-    rehearsalReceipt.cleanRoom = null;
-  }
-  session.progress.rehearsal.state = rehearsalClean ? 'completed' : 'completed_with_warnings';
-  session.progress.rehearsal.cleanRoom = rehearsalReceipt.cleanRoom;
-  const rehearsalReceiptPath = await store.write(session.id, 'rehearsal-receipt.json', rehearsalReceipt);
-
-  const backupReceipt = {
-    schema: 'workspace-recover/backup-receipt/v2',
-    sessionId: session.id,
-    archive: transport.archive,
-    transportManifestRemote: transportRemote,
-    freshProviderRoundtripVerified: true,
-    recoveryRehearsal: rehearsalReceipt,
-    completedAt: nowIso(),
-  };
-  const backupReceiptPath = await store.write(session.id, 'backup-receipt.json', backupReceipt);
-  const handoffIndex = {
-    schema: 'workspace-recover/handoff/v2',
-    backupSessionId: session.id,
-    recoveryManifestSha256: await sha256File(recoveryManifestPath),
-    transportManifestSha256: await sha256File(transportPath),
-    backupReceiptSha256: await sha256File(backupReceiptPath),
-    rehearsalReceiptSha256: await sha256File(rehearsalReceiptPath),
-  };
-  const handoffIndexPath = await store.write(session.id, 'workspace-handoff.json', handoffIndex);
-  const attachments = [
-    { name: 'workspace-handoff.json', path: handoffIndexPath, mimeType: 'application/json' },
-    { name: 'workspace-recovery-manifest.json', path: recoveryManifestPath, mimeType: 'application/json' },
-    { name: 'workspace-transport-manifest.json', path: transportPath, mimeType: 'application/json' },
-    { name: 'workspace-backup-receipt.json', path: backupReceiptPath, mimeType: 'application/json' },
-    { name: 'workspace-rehearsal-receipt.json', path: rehearsalReceiptPath, mimeType: 'application/json' },
-  ];
-  const body = [
-    `workspace-recover backup session: ${session.id}`,
-    `Recovery rehearsal: ${rehearsalWorkflow.hardFailure ? 'failed' : 'success'}`,
-    `Verification: ${rehearsalWorkflow.advisoryWarnings ? 'warnings' : 'passed'}`,
-    `Archive SHA256: ${transport.archive.sha256}`,
-    '',
-    `More: workspace-recover info ${session.id}`,
-  ].join('\n');
-  const handoff = await handoffProvider.sendHandoff({
-    sessionId: session.id,
-    to: manifest.handoff.to,
-    subject: manifest.handoff.subject || `workspace-recover handoff ${session.id}`,
-    body,
-    attachments,
-  });
-  const attachmentHashes = Object.fromEntries(await Promise.all(attachments.map(async item => [item.name, await sha256File(item.path)])));
-  const readbackDir = path.join(sessionDir, 'handoff-readback');
-  const handoffReadback = await verifyHandoffReadback(handoffProvider, handoff, { readbackDir, attachmentHashes });
-  const handoffReportPath = await store.write(session.id, 'reports/handoff/primary.json', {
-    id: handoffReadback.id, url: handoff.url, readbackVerified: true, attachments: handoffReadback.attachments, attachmentHashes,
-  });
-
-  const backupInfoPath = path.join(sessionDir, 'reports', 'backup', 'primary.json');
-  await ensureDir(path.dirname(backupInfoPath));
-  await writeJsonAtomic(backupInfoPath, { backupReceipt, handoff, readbackVerified: true });
-  const backupShort = `${transport.parts.length} part(s), ${transport.archive.bytes} bytes, provider roundtrip verified`;
-  const backupMedium = [backupShort, `archiveSha256: ${transport.archive.sha256}`, `handoff: ${handoff.url || handoff.id}`, `rehearsal: ${rehearsalReceipt.restoreStatus}`, `verification: ${rehearsalReceipt.verificationStatus}`].join('\n');
-  await store.setInfo(session, 'backup', { short: backupShort, medium: backupMedium, fullPath: backupInfoPath });
-  await store.setInfo(session, 'verification', rehearsalWorkflow.verificationReport);
-  await store.setInfo(session, 'workflow', rehearsalWorkflow.workflowReport);
-  for (const item of rehearsalWorkflow.results) {
-    if (item.report) await store.setInfo(session, `step:${item.id}`, item.report);
-  }
-  await store.setInfo(session, 'handoff', { short: `handoff sent/read back: ${handoff.id}`, medium: `${handoff.url || handoff.id}\nattachments=${attachments.length}`, fullPath: handoffReportPath });
-  session.handoff = handoff;
-  session.state = rehearsalWorkflow.hardFailure ? 'failed' : rehearsalWorkflow.advisoryWarnings ? 'completed_with_warnings' : 'completed';
-  session.next = { type: 'none' };
-  session.result = { backup: 'created', recoveryRehearsal: rehearsalWorkflow.hardFailure ? 'failed' : 'success', verification: rehearsalWorkflow.advisoryWarnings ? 'warnings' : 'passed' };
-  await store.save(session);
-  return session;
+  const workflow=execution.workflow;
+  const backupReceiptPath=path.join(sessionDir,'backup-receipt.json');
+  if(!progress.backupReceiptWritten){await store.write(session.id,'backup-receipt.json',{schema:'workspace-recover/backup-receipt/v3',sessionId:session.id,archive:transport.archive,transportManifestRemote:progress.transportRemote,freshProviderRoundtripVerified:true,recoveryRehearsal:receipt,completedAt:nowIso()});progress.backupReceiptWritten=true;await store.save(session);}
+  const backupReceipt=await readJson(backupReceiptPath);
+  // Publish the exact externally consumable manifest only after it was rehearsed.
+  if(!progress.recoveryRemote){progress.recoveryRemote=await provider.upload(recoveryPath,{name:`workspace-recover-${session.id}-recovery-manifest.json`,folderId:manifest.backup.provider.folderId});await store.save(session);}
+  if(!progress.recoveryReadback){const out=path.join(sessionDir,'recovery-manifest-readback.json');await provider.download(progress.recoveryRemote,out,{expectedFolderId:manifest.backup.provider.folderId,expectedBytes:(await fsp.stat(recoveryPath)).size,expectedSha256:progress.recoveryManifestSha256});if(await sha256File(out)!==progress.recoveryManifestSha256)throw new Error('recovery manifest provider roundtrip mismatch');progress.recoveryReadback=true;await store.save(session);}
+  const handoffIndex={schema:'workspace-recover/handoff/v3',backupSessionId:session.id,recoveryManifestSha256:progress.recoveryManifestSha256,transportManifestSha256:await sha256File(transportPath),backupReceiptSha256:await sha256File(backupReceiptPath),rehearsalReceiptSha256:await sha256File(rehearsalReceiptPath)};
+  const indexPath=await store.write(session.id,'workspace-handoff.json',handoffIndex);
+  const attachments=[['workspace-handoff.json',indexPath],['workspace-recovery-manifest.json',recoveryPath],['workspace-transport-manifest.json',transportPath],['workspace-backup-receipt.json',backupReceiptPath],['workspace-rehearsal-receipt.json',rehearsalReceiptPath]].map(([name,file])=>({name,path:file,mimeType:'application/json'}));
+  const context={sessionId:session.id,projectName:manifest.name||'workspace',archiveSha256:transport.archive.sha256,archiveBytes:String(transport.archive.bytes),archiveLinks:transport.parts.map(p=>p.remote.url||p.remote.id).join('\n'),recoveryManifestUrl:progress.recoveryRemote.url||progress.recoveryRemote.id,rehearsal:workflow.hardFailure?'failed':'success',verification:workflow.advisoryWarnings?'warnings':'passed'};
+  const defaultBody='workspace-recover backup session: {{sessionId}}\nProject: {{projectName}}\nRecovery rehearsal: {{rehearsal}}\nVerification: {{verification}}\nArchive bytes: {{archiveBytes}}\nArchive SHA256: {{archiveSha256}}\n\n{{archiveLinks}}\nRecovery manifest: {{recoveryManifestUrl}}\n\nMore: workspace-recover info {{sessionId}}';
+  const body=(manifest.handoff.bodyTemplate||defaultBody).replace(/\{\{([A-Za-z][A-Za-z0-9]*)\}\}/g,(_,key)=>{if(!(key in context))throw new Error(`unknown mail template placeholder: ${key}`);return context[key];});
+  const subject=manifest.handoff.subject||`workspace-recover handoff ${session.id}`;
+  if(!progress.handoff){progress.handoff=await mail.sendHandoff({sessionId:session.id,to:manifest.handoff.to,subject,body,attachments});await store.save(session);}
+  const handoff=progress.handoff;
+  const attachmentHashes=Object.fromEntries(await Promise.all(attachments.map(async a=>[a.name,await sha256File(a.path)])));
+  const readback=await verifyHandoffReadback(mail,handoff,{readbackDir:path.join(sessionDir,'handoff-readback'),attachmentHashes});
+  if(readback.subject!==undefined && readback.subject!==subject)throw new Error('Gmail readback subject mismatch');
+  if(readback.to!==undefined){const list=x=>(Array.isArray(x)?x:String(x).split(',')).map(s=>s.trim().toLowerCase()).sort().join(',');if(list(readback.to)!==list(manifest.handoff.to||[]))throw new Error('Gmail readback recipients mismatch');}
+  if(typeof readback.body==='string' && readback.body.replaceAll('\r\n','\n').trimEnd()!==body.trimEnd())throw new Error('handoff body readback mismatch');
+  const handoffReport=await store.write(session.id,'reports/handoff/primary.json',{id:readback.id,url:handoff.url,readbackVerified:true,attachments:readback.attachments,attachmentHashes});
+  const backupReport=await store.write(session.id,'reports/backup/primary.json',{backupReceipt,handoff,readbackVerified:true});
+  const short=`${transport.parts.length} part(s), ${transport.archive.bytes} bytes, provider roundtrip verified`;
+  await store.setInfo(session,'backup',{short,medium:`${short}\narchiveSha256: ${transport.archive.sha256}\nhandoff: ${handoff.url||handoff.id}\nrehearsal: ${receipt.restoreStatus}\nverification: ${receipt.verificationStatus}`,fullPath:backupReport});
+  for(const name of ['verification','workflow'])await store.setInfo(session,name,workflow[`${name}Report`]);
+  for(const r of workflow.results)if(r.report)await store.setInfo(session,`step:${r.id}`,r.report);
+  await store.setInfo(session,'handoff',{short:`handoff sent/read back: ${handoff.id}`,medium:`${handoff.url||handoff.id}\nattachments=${attachments.length}`,fullPath:handoffReport});
+  session.handoff=handoff;session.state=workflow.hardFailure?'failed':workflow.advisoryWarnings?'completed_with_warnings':'completed';session.next={type:'none'};
+  session.result={backup:'created',recoveryRehearsal:workflow.hardFailure?'failed':'success',verification:workflow.advisoryWarnings?'warnings':'passed'};await store.save(session);return session;
 }

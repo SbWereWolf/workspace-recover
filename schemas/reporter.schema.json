@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "workspace-recover/reporter/v2",
+  "$id": "workspace-recover/reporter/v3",
   "type": "object",
   "properties": {
     "profile": {
