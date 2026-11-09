@@ -1,0 +1,81 @@
+{
+  "requirements": [
+    {
+      "id": "node-runtime",
+      "commands": [
+        {
+          "argv": [
+            "${node}",
+            "--check",
+            "${repository}/bin/workspace-recover.mjs"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "PYTHONPATH": "${module_path}",
+            "LANG": "C.UTF-8"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "checks": {
+        "presence": {
+          "commands": [
+            {
+              "argv": [
+                "${node}",
+                "--version"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "PYTHONPATH": "${module_path}",
+                "LANG": "C.UTF-8"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "availability": {
+          "commands": [
+            {
+              "argv": [
+                "${node}",
+                "--check",
+                "${repository}/bin/workspace-recover.mjs"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "PYTHONPATH": "${module_path}",
+                "LANG": "C.UTF-8"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

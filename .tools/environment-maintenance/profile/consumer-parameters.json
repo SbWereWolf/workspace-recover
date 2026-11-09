@@ -1,0 +1,12 @@
+{
+  "repository": "",
+  "profile_root": "",
+  "task_root": "",
+  "path": "",
+  "module_path": "",
+  "node": "",
+  "npm_entry_point": "",
+  "bootstrap_python": "",
+  "console_log_directory": "",
+  "maintenance_python": "/absolute/path/to/selected/environment-maintenance/.venv/bin/python"
+}

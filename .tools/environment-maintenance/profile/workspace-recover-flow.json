@@ -1,0 +1,11 @@
+{
+  "schema": "workspace-recover/flow/v3",
+  "workspace": "",
+  "steps": [
+    {
+      "id": "verify-entrypoint",
+      "op": "command",
+      "argv": []
+    }
+  ]
+}

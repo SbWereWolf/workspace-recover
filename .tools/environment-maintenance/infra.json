@@ -1,0 +1,104 @@
+{
+  "requirements": [
+    {
+      "id": "environment-maintenance",
+      "commands": [
+        {
+          "argv": [
+            "/bin/mkdir",
+            "-p",
+            "${installation}/vendor"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "ENVIRONMENT_MAINTENANCE_PYTHON": "${bootstrap_python}",
+            "PIP_NO_INDEX": "1",
+            "PIP_FIND_LINKS": "${wheelhouse}"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "/bin/cp",
+            "${supply}/package.json",
+            "${supply}/package-lock.json",
+            "${installation}"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "ENVIRONMENT_MAINTENANCE_PYTHON": "${bootstrap_python}",
+            "PIP_NO_INDEX": "1",
+            "PIP_FIND_LINKS": "${wheelhouse}"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "/bin/cp",
+            "${supply}/vendor/environment-maintenance-4.0.0.tgz",
+            "${installation}/vendor"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "ENVIRONMENT_MAINTENANCE_PYTHON": "${bootstrap_python}",
+            "PIP_NO_INDEX": "1",
+            "PIP_FIND_LINKS": "${wheelhouse}"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "${node}",
+            "${npm}",
+            "ci",
+            "--prefix",
+            "${installation}",
+            "--offline",
+            "--foreground-scripts",
+            "--no-audit",
+            "--no-fund"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "ENVIRONMENT_MAINTENANCE_PYTHON": "${bootstrap_python}",
+            "PIP_NO_INDEX": "1",
+            "PIP_FIND_LINKS": "${wheelhouse}"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# Установленная версия environment-maintenance
+
+Пакет 4.0.0 закреплён в `package.json` и npm lock. Неизменяемый архив
+находится в `vendor/`; `.runtime` содержит восстанавливаемую установленную
+копию, а не единственный источник пакета.
+
+Для восстановления выберите рабочую внешнюю установку environment-maintenance.
+Заполните отдельную рабочую копию `parameters.example.json`: `repository` —
+этот checkout, `supply` — его `.tools/environment-maintenance`, `installation` —
+его `.runtime/environment-maintenance`; остальные поля задают Node, npm CLI,
+PATH, независимый bootstrap Python 3.12 и доступный wheelhouse зависимостей.
+Рабочие абсолютные пути не коммитятся. Выполните внешним `start-app`:
+
+```bash
+"$START_APP" infra --config "$SUPPLY/app.json" --parameters "$PARAMETERS" --base-dir "$REPOSITORY" --requirements all
+"$REPOSITORY/.runtime/environment-maintenance/node_modules/.bin/start-app" --version
+```
+
+Установку и lock обслуживает npm. Для другой принятой версии одновременно
+замените архив, зависимость, полученный npm lock и имя архива в `infra.json`.
+При отказе установки сохраните полный вывод, исправьте указанную причину и
+восстановите ту же закреплённую версию через внешнюю исправную установку.
+
+Maintenance-профиль публикуется существующим `worktree_profile.py publish`
+из поставленных v4 деклараций. Python пакета принадлежит этой установке;
+Python прикладных команд задаётся отдельно. Корневой `start-app.json` ссылается
+на опубликованные документы абсолютными путями и задаёт `invocation.parameters`
+и `invocation.base_dir`. Обработчики результатов принадлежат модулю
+`poise_environment.result_interpreters` выбранного общего источника Poise.
+При удалении `.runtime` повторите установку и публикацию из постоянных исходников.
+
+`run --app NAME` выбирает одно объявленное приложение; без `--app` запускается
+весь набор. `run list` показывает объявленные приложения; с `--env ENV` — ещё
+не запущенные в окружении. `stop list` показывает окружения. `stop --env ENV`
+останавливает зарегистрированные процессы выбранного окружения; сохраните
+его имя из результата запуска. Эти команды не подтверждают готовность
+бизнес-сервисов. Не включайте в проверку чужие процессы.

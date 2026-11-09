@@ -1,0 +1,8 @@
+{
+  "name": "workspace-recover-environment-tools",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "environment-maintenance": "file:vendor/environment-maintenance-4.0.0.tgz"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "operations": {
+    "infra": "infra.json"
+  },
+  "interpreters": {
+    "exit": {
+      "module": "environment_maintenance.actions.interpreters",
+      "attribute": "exit_result"
+    }
+  }
+}

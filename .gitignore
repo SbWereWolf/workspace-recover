@@ -1,2 +1,6 @@
 /.idea/
 /mailbox/
+
+# Installation-specific maintenance state and selected entry.
+/.runtime/
+/start-app.json
