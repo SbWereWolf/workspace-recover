@@ -51,7 +51,7 @@
         {
           "argv": [
             "/bin/cp",
-            "${supply}/vendor/environment-maintenance-4.0.0.tgz",
+            "${supply}/vendor/environment-maintenance-5.0.0.tgz",
             "${installation}/vendor"
           ],
           "cwd": "${repository}",

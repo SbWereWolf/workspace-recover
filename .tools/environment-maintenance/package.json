@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "environment-maintenance": "file:vendor/environment-maintenance-4.0.0.tgz"
+    "environment-maintenance": "file:vendor/environment-maintenance-5.0.0.tgz"
   }
 }
