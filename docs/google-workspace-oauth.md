@@ -164,21 +164,19 @@ Refresh token также может стать недействительным 
 domain-wide delegation не реализован. Проверки с локальными transport-fixtures и
 connector-assisted скачиванием не означают успешный direct OAuth end-to-end.
 
-Инструкция сверена 22 сентября 2026 года с официальными материалами Google:
+Официальные справочники Google:
 
 - [Installed app flow, loopback и ошибки](https://developers.google.com/identity/protocols/oauth2/native-app).
 - [Срок действия refresh tokens](https://developers.google.com/identity/protocols/oauth2#expiration).
 - [Классы Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes).
 - [Классы Drive scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth).
 
-## Проверка данной реализации
+## API и проверка доступа
 
-В 0.2.3 протокольные тесты выполняют реальный код адаптера с локальными
-ответами Google API: OAuth refresh, PKCE callback, resumable Drive upload,
-чтение metadata/проверка folder, скачивание, Gmail send и чтение JSON attachments.
-Сетевые вызовы аккаунта в этих тестах не выполняются. Реальные файлы релизов
-передаются авторизованным коннектором и проверяются отдельно. Gmail API URL
-использует `/gmail/v1/`, Drive — `/drive/v3/`; собственные документы — `/v3`.
+Gmail использует `/gmail/v1/`, Drive — `/drive/v3/`; собственные документы WR —
+`/v3`. Не меняйте Google API URL при выборе версии документа WR. Наличие token
+или результат `auth status` не подтверждает доступ: проверьте фактическую нужную
+операцию в своей среде и сохраните её ответ. Не публикуйте credentials в отчётах.
 
 [Контракт Gmail messages.get](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/get) ·
 [Загрузка в Drive](https://developers.google.com/workspace/drive/api/guides/manage-uploads).

@@ -24,12 +24,15 @@ workspace-recover continue <session> --set target=/work/project
 - `medium` — полезную расширенную информацию, определённую reporter profile;
 - `full` — **только путь** к файлу первичной записи. Содержимое не печатается.
 
-CLI не печатает после каждой операции полный список команд. Terminal output
+Legacy CLI не печатает после каждой операции полный список команд. Его terminal output
 содержит одну подсказку:
 
 ```text
 More: workspace-recover info <session>
 ```
+
+Generic `flow` возвращает JSON status со своим sessionId, текущим решением и
+машинным продолжением; это отдельный договор вывода.
 
 ## Reporter profiles
 

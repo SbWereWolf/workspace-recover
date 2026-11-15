@@ -8,8 +8,9 @@ folder is copied into its own repository.
 
 - Do not import files from parent applications, `ai-assistant`, Stoneweave, or
   ERP.
-- Runtime dependencies are Node.js built-ins only unless the product manifest
-  explicitly changes that contract.
+- The recovery runtime is Python with the exact command-execution dependency
+  declared by pyproject.toml. Node only installs/launches the private Python
+  environment for the npm entry. Prepare that environment before using its shim.
 - Public behavior is declarative: template -> manifest -> plan -> session ->
   receipt.
 - The manifest author owns workflow order. Do not invent test selection,
@@ -21,11 +22,12 @@ folder is copied into its own repository.
   preserve
   it on warning/failure for investigation.
 - `info --view full` returns only a filesystem path to the primary record.
-- Every terminal CLI result prints the session ID and one compact `More:` hint.
+- Legacy operation results print the session ID and one compact `More:` hint;
+  generic flow emits its structured status and current-stage continuation.
 - Google credentials live outside the repository and outside backup payloads.
 - Contract tests are required for behavioral changes.
 
-## Current-stage flow contract (1.0.0)
+## Current-stage flow contract
 
 Read [the development skill](skills/workspace-recover-development/SKILL.md)
 before changing the recovery runner. For `flow`, an answer changes only the

@@ -119,3 +119,17 @@ workspace-recover restore --manifest edited-recovery.json --target /work/new-tar
 `requires.formatVersion` допускает только `2`; `requires.features` проверяет
 возможности исполнителя. Другие версии форматов не читаются. Изменение исходного
 manifest не инвалидирует уже зафиксированный plan.
+
+
+## Запись и runtime
+
+Для запуска npm-входа сначала подготовить private Python runtime с точной CE;
+см. [установку](../README.md#install). Команды `node scripts/check.mjs` в
+author workflow — явный выбор автора, а не встроенный recovery gate.
+
+`template render --output FILE` сохраняет существующие permission bits FILE,
+создаёт отсутствующих родителей и применяет creation mode только к новому файлу.
+Объединение `--values`, `--set` и `--set-json` и происхождение значений остаются
+частью WR, общая механика IO/подстановок находится в CE. Полная подстановка
+сохраняет тип; индекс `${items.0}` обращается к элементу массива, `${items.length}`
+к его длине. Будущие stage outputs разрешаются только у потребляющего этапа.

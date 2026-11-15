@@ -45,7 +45,7 @@ Recommendations should carry executable Ubuntu argv and a shell-quoted command,
 or a clearly marked command template where a value is genuinely missing.
 Examples: mkdir -p -- PATH; mktemp -d -t wr-artifacts-XXXXXX;
 sha256sum -- FILE; tar -tf FILE; cat -- LOG;
-sleep 60; node bin/workspace-recover.mjs flow run --session SESSION.
+sleep 60; workspace-recover flow run --session SESSION.
 Do not shell-interpolate untrusted filenames; keep argv and presentation separate.
 
 ## Host boundary
@@ -73,6 +73,15 @@ handoff destination. Verify a fresh downloaded copy, its hash, and extraction.
 A restore rehearsal or application test is performed only when appropriate to
 the task declaration, not as an implicit requirement imposed by this skill on
 all end users. Retain failed runs as evidence. No invented receipts.
+
+## Python runtime and source checks
+
+Prepare the package-private environment using an explicitly selected Python with
+venv/pip and the exact CE dependency. Source `npm test` invokes the independent
+external Python contracts through that installed runtime. Keep
+schemas/templates as installed package resources and generic IO/process/parameter
+mechanisms in CE. Do not import a parent application or silently use sibling source.
+For the npm launcher, missing interpreter/dependency is an installation failure.
 
 ## Implementation and release checks
 
