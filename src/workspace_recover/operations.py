@@ -1,7 +1,7 @@
 """Public operation dispatch; resumed plans use frozen session inputs."""
 from pathlib import Path
 import shutil
-from .cli import resolve_template, supplied
+from .template import resolve_template, supplied
 from .formats import assert_format, schema
 from .profiles import load_profile
 from .project import discover_project, project_values, start_init, resolve_init

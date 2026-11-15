@@ -9,7 +9,7 @@ from command_execution.processes import execute_invocation
 from . import __version__
 from .util import read_json, write_json, home_dir, resource_path
 from .formats import assert_format
-from .template import load_values, render_template, describe_inputs
+from .template import load_values, render_template, describe_inputs, resolve_template, supplied
 from .profiles import load_profile, create_profile, list_profiles
 from .session import SessionStore
 
@@ -61,17 +61,6 @@ def parse_args(argv):
             options[key] = text
     if options.get("interactive") and options.get("non-interactive"): raise ValueError("--interactive conflicts with --non-interactive")
     return positional, options
-
-
-def resolve_template(reference):
-    reference = {"local": "local-project", "google-workspace": "google-workspace-project"}.get(reference, reference)
-    direct = Path(reference).absolute()
-    for candidate in (direct, home_dir("config") / "templates" / reference / "template.json", home_dir("config") / "templates" / (reference + ".json"), resource_path("templates", reference, "template.json")):
-        if candidate.exists(): return candidate
-    raise ValueError(f"template not found by name or path: {reference}")
-
-
-def supplied(options): return load_values(options.get("values", []), options.get("set", []), options.get("set-json", []))
 
 
 def print_session(session, options=None):

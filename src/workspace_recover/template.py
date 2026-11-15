@@ -6,9 +6,20 @@ import re
 from command_execution.documents import loads
 from urllib.parse import urlparse
 from .formats import assert_format, schema
-from .util import deep_merge, get_path, set_path, parse_scalar, read_json, write_json, render, integer
+from .util import deep_merge, get_path, set_path, parse_scalar, read_json, write_json, render, integer, home_dir, resource_path
 
 TYPES = {"string", "number", "integer", "boolean", "array", "object", "path", "email", "url", "enum", "google-drive-folder"}
+
+
+def resolve_template(reference):
+    reference = {"local": "local-project", "google-workspace": "google-workspace-project"}.get(reference, reference)
+    direct = Path(reference).absolute()
+    for candidate in (direct, home_dir("config") / "templates" / reference / "template.json", home_dir("config") / "templates" / (reference + ".json"), resource_path("templates", reference, "template.json")):
+        if candidate.exists(): return candidate
+    raise ValueError(f"template not found by name or path: {reference}")
+
+
+def supplied(options): return load_values(options.get("values", []), options.get("set", []), options.get("set-json", []))
 
 
 def load_values(files=(), sets=(), json_sets=()):
