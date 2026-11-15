@@ -1,0 +1,10 @@
+{
+  "schema": "runtime-adapter-1",
+  "project_config": "/srv/poise/app/projects/workspace-recover/project.json",
+  "adapter_id": "wr-codex-local",
+  "transcript_roots": [],
+  "max_scan_bytes": 1048576,
+  "max_line_bytes": 65536,
+  "max_events": 100,
+  "required_capabilities": []
+}

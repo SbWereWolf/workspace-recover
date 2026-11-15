@@ -1,0 +1,9 @@
+DROP TABLE "requirement_entities";
+DROP TABLE "requirement_actions";
+DROP TABLE "requirement_links";
+DROP TABLE "domain_entities";
+DROP TABLE "domain_actions";
+DROP TABLE "requirements_meta";
+DROP TABLE "requirements";
+DROP TABLE "requirement_requests";
+DROP TABLE "domain_areas";

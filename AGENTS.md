@@ -35,3 +35,15 @@ inputs at their consuming stage. Supply concrete Ubuntu commands in advice.
 Product checks are manifest commands, never stock-template requirements.
 The fixed v3 backup rehearsal above documents the legacy backup entrypoint;
 it must not become a gate on generic flow or on all callers' workflows.
+
+## Requirements registry
+
+Before changing requirements, schema, migration history or registry configuration,
+read [the requirements guide](docs/requirements/README.md). The working database
+belongs in `docs/requirements/requirements.sqlite`; keep all schema/data migrations,
+rollbacks, bootstrap SQL and configuration examples inside WR under Git. Working
+configuration, database/sidecars, locks and the migration environment are ignored.
+Use WR's pinned yoyo dependency through `scripts/requirements-migrations.py`, which
+preserves Poise-compatible schema/data histories. Never substitute ERP requirements
+or leave WR working material in ERP. Preserve genuine Task ownership and independent
+review; registry rows do not prove implementation or publication.

@@ -1,0 +1,2 @@
+# Operator/development tooling only; the Node.js runtime remains built-ins-only.
+yoyo-migrations==9.0.0

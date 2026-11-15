@@ -1,0 +1,9 @@
+{
+  "paths": {
+    "requirements_database": "/srv/workspace-recover/docs/requirements/requirements.sqlite",
+    "requirements_lock": "/srv/workspace-recover/docs/requirements/requirements.lock",
+    "requirements_schema_migrations": "/srv/workspace-recover/docs/requirements/schema-migrations",
+    "requirements_data_migrations": "/srv/workspace-recover/docs/requirements/data",
+    "requirements_schema_file": "/srv/workspace-recover/docs/requirements/schema.sql"
+  }
+}

@@ -4,3 +4,6 @@
 # Installation-specific maintenance state and selected entry.
 /.runtime/
 /start-app.json
+
+# WR-owned requirements migration environment; sources/config examples stay in Git.
+/.tools/requirements-migrations/
