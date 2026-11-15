@@ -3,6 +3,7 @@ from pathlib import Path
 from command_execution.documents import stringify, loads
 from . import flow
 from .util import read_json
+from .session_output import select_session
 import json
 
 DEFAULT_TEMPLATE = {"schema": "workspace-recover/flow/v3", "_comment": "Consider running your project automated tests after recovery, when applicable.", "steps": []}
@@ -37,6 +38,7 @@ def main(argv):
         return 0
     if not options.get("session"): raise ValueError("A session location is needed: --session DIR.")
     directory, limit = Path(options["session"]).absolute(), int(options["limit"]) if options.get("limit") else float("inf")
+    select_session(None, directory, flow=True)
     if action == "run":
         manifest_path = Path(options["manifest"]).absolute() if options.get("manifest") else None
         manifest = read_json(manifest_path, strip_bom=True) if manifest_path else None

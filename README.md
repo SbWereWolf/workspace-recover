@@ -118,6 +118,18 @@ To inspect the saved workflow:
 workspace-recover flow status --session "$wr_demo_dir/session"
 ```
 
+## Session references
+
+Every CLI invocation prints one `Session: {"sessionId": ..., "sessionPath": ...}`
+record to stderr, including failures. Save this reference. Commands that do not
+have a session report `null` values; WR does not create a recovery session for
+help, version, or configuration commands. stdout keeps its command-specific JSON,
+text, or single-path format.
+
+`info`, `status`, `next`, and `continue` require an explicit session ID, with
+`--state-dir DIR` when using a custom store. Flow commands require the explicit
+`--session DIR` shown above. WR never searches for a current or latest session.
+
 ## Learn more
 
 - [Flow reference: operations, decisions, retries and host actions](https://github.com/SbWereWolf/workspace-recover/blob/main/docs/flow.md)

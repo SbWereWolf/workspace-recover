@@ -12,6 +12,7 @@ from .formats import assert_format
 from .template import load_values, render_template, describe_inputs, resolve_template, supplied
 from .profiles import load_profile, create_profile, list_profiles
 from .session import SessionStore
+from .session_output import reset_reference, report_reference
 
 USAGE = """workspace-recover
 
@@ -25,7 +26,7 @@ Commands:
   template init|list|describe|render
   backup [template-name|template.json|manifest.json] [--state-dir DIR]
   restore [handoff|recovery.json] [--target DIR] [--state-dir DIR]
-  continue|status|next|info [session-id] [--state-dir DIR]
+  continue|status|next|info <session-id> [--state-dir DIR]
   auth google-workspace|status|profiles
   profile create|show|list
 """
@@ -171,7 +172,8 @@ def main(argv=None):
         return 0
     store = SessionStore(options.get("state-dir"))
     if command in ("status", "next", "info", "continue"):
-        identifier = action or store.current()
+        if not action: raise ValueError(f"{command} requires an explicit session ID; automatic session lookup is disabled.")
+        identifier = action
         session = store.load(identifier)
         if command == "status": print_session(session, options)
         elif command == "next": emit({"session": identifier, "state": session["state"], "next": session.get("next")})
@@ -213,9 +215,12 @@ def main(argv=None):
 
 
 def entrypoint():
+    reset_reference()
     try: code = main()
     except Exception as error:
         if getattr(error, "session", None): print_session(error.session, {"state-dir": str(error.state_root)})
         print(f"workspace-recover: {error}", file=sys.stderr)
         code = 1
+    finally:
+        report_reference()
     raise SystemExit(code)

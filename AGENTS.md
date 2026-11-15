@@ -21,7 +21,10 @@ folder is copied into its own repository.
   directory. Delete the clean room only after a fully successful rehearsal;
   preserve
   it on warning/failure for investigation.
-- `info --view full` returns only a filesystem path to the primary record.
+- `info --view full` returns only a filesystem path to the primary record on stdout.
+- Session lookup and current-session pointers are forbidden. Require explicit legacy
+  session IDs or an explicit flow directory. Every CLI result, including errors,
+  reports a `Session: ` JSON reference on stderr; use null when no session exists.
 - Legacy operation results print the session ID and one compact `More:` hint;
   generic flow emits its structured status and current-stage continuation.
 - Google credentials live outside the repository and outside backup payloads.

@@ -117,9 +117,11 @@ rewrites. Do not override a frozen plan with new input values.
 Use `init local` or `init google-workspace` once, with the filled bundled values
 form. Ordinary project runs use `backup` with no positional template. Init keeps
 machine paths in ignored `values.local.json`, not `project.json`. It never
-replaces existing author configuration. `info`, `next`, and `continue` without
-an ID use the current directory's session pointer. Always keep the emitted ID for
-cross-directory or multi-project work; there is no global "latest session" guess.
+replaces existing author configuration. `info`, `status`, `next`, and `continue`
+require an explicit session ID. Never discover or guess a session by directory,
+project, or stored pointer. Every CLI invocation emits a `Session: ` JSON record
+on stderr with `sessionId` and `sessionPath`; keep both. Commands with no session
+report null values. Flow requires an explicit `--session DIR`.
 
 ## Named actions and saved reports
 

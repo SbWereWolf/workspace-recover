@@ -45,7 +45,6 @@ def resolve_init(store, session, template, values):
     full = store.write(session["id"], "init-receipt.json", {"schema": schema("init-receipt"), "projectRoot": str(root), "configuration": str(directory / "project.json"), "inputProvenance": rendered["provenance"]})
     session.update(result={"configuration": "created", "project": str(root)}, state="completed", next={"type": "automatic", "action": "backup", "command": "workspace-recover backup"})
     store.set_info(session, "init", short=f"Project configuration created: {root}", medium=f"Configuration: {directory / 'project.json'}\nLocal values: {directory / 'values.local.json'}\nNext operation: backup", full_path=full)
-    store.remember(session["id"], root)
     return store.save(session)
 
 

@@ -23,7 +23,6 @@ def start_operation(command, references, options, store):
             if not project: raise ValueError("Project configuration not found. Run workspace-recover init, or supply a template.")
             values, provenance = project_values(project, options)
             session = start_backup(store, project["directory"] / project["document"]["template"], values, provenance, execution)
-            store.remember(session["id"], project["root"])
             return session
         file = Path(reference).absolute()
         if file.exists() and read_json(file).get("schema") == schema("manifest"):

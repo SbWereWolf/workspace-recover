@@ -4,7 +4,8 @@ import re
 import threading
 import traceback
 from .formats import assert_format, schema
-from .util import home_dir, session_id, now_iso, read_json, write_json, write_text, sha256_text
+from .session_output import select_session
+from .util import home_dir, session_id, now_iso, read_json, write_json, write_text
 
 
 def terminal_state(state): return state in ("completed", "completed_with_warnings", "failed", "aborted")
@@ -24,28 +25,19 @@ class SessionStore:
         self.directory(identifier).mkdir(parents=True, exist_ok=True)
         session = {"schema": schema("session"), "id": identifier, "operation": operation, "state": "running", "createdAt": now_iso(), "updatedAt": now_iso(), "next": None, "info": {}, **extra}
         self.save(session)
-        self.remember(identifier)
+        select_session(identifier, self.directory(identifier) / "session.json")
         return session
 
-    def load(self, identifier): return assert_format(read_json(self.directory(identifier) / "session.json"), "session")
+    def load(self, identifier):
+        file = self.directory(identifier) / "session.json"
+        select_session(identifier, file)
+        return assert_format(read_json(file), "session")
 
     def save(self, session):
         with self._lock:
             session["updatedAt"] = now_iso()
             write_json(self.directory(session["id"]) / "session.json", session)
         return session
-
-    def remember(self, identifier, scope=None):
-        self.directory(identifier)
-        scope = str(Path(scope or Path.cwd()).absolute())
-        write_json(self.root / "current" / (sha256_text(scope) + ".json"), {"schema": schema("current-session"), "sessionId": identifier, "scope": scope})
-
-    def current(self, scope=None):
-        file = self.root / "current" / (sha256_text(str(Path(scope or Path.cwd()).absolute())) + ".json")
-        if not file.exists(): raise ValueError("No current session in this project/directory. Supply an explicit session ID.")
-        pointer = assert_format(read_json(file), "current-session")
-        self.load(pointer["sessionId"])
-        return pointer["sessionId"]
 
     def write(self, identifier, relative, value, mode=0o600):
         file = self.directory(identifier) / relative
