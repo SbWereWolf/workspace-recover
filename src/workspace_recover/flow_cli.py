@@ -37,8 +37,9 @@ def main(argv):
         else: print(text, end="")
         return 0
     if not options.get("session"): raise ValueError("A session location is needed: --session DIR.")
-    directory, limit = Path(options["session"]).absolute(), int(options["limit"]) if options.get("limit") else float("inf")
+    directory = Path(options["session"]).absolute()
     select_session(None, directory, flow=True)
+    limit = int(options["limit"]) if options.get("limit") else float("inf")
     if action == "run":
         manifest_path = Path(options["manifest"]).absolute() if options.get("manifest") else None
         manifest = read_json(manifest_path, strip_bom=True) if manifest_path else None

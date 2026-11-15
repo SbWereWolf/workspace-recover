@@ -56,6 +56,11 @@ class ExplicitSessionChecks(unittest.TestCase):
   for args in [('status',),('host-plan',),('host-claim',)]:
    _,selected=self.invoke('flow',*args,'--session',s);self.assertEqual(selected,ref)
   _,selected=self.invoke('flow','decide','--session',s,'--request','wrong','--choice','skip',exit=1);self.assertEqual(selected,ref)
+  before=(s/'state.json').read_bytes()
+  for action in ('run','status','unknown'):
+   failed,selected=self.invoke('flow',action,'--session',s,'--limit','not-a-number',exit=1)
+   self.assertEqual(selected,ref);self.assertEqual(failed.stdout,b'');self.assertIn(b'invalid literal for int()',failed.stderr)
+   self.assertEqual((s/'state.json').read_bytes(),before)
   missing=self.root/'missing-session';_,selected=self.invoke('flow','status','--session',missing,exit=1);self.assertEqual(selected,{'sessionId':None,'sessionPath':str(missing)})
  def test_missing_npm_python_still_reports_no_session(self):
   package=ROOT;fake=self.root/'package'
