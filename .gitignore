@@ -4,3 +4,11 @@
 # Installation-specific maintenance state and selected entry.
 /.runtime/
 /start-app.json
+
+# Package-private Python installation and generated build files.
+/.venv/
+/build/
+/dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
