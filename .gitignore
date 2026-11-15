@@ -7,3 +7,10 @@
 
 # WR-owned requirements migration environment; sources/config examples stay in Git.
 /.tools/requirements-migrations/
+# Package-private Python installation and generated build files.
+/.venv/
+/build/
+/dist/
+*.egg-info/
+__pycache__/
+*.py[cod]

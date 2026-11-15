@@ -1,2 +1,2 @@
-# Operator/development tooling only; the Node.js runtime remains built-ins-only.
+# Operator/development tooling only; separate from Python application runtime.
 yoyo-migrations==9.0.0

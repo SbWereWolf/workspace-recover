@@ -1,12 +1,13 @@
 {
   "name": "workspace-recover",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Declarative backup and recovery runtime with clean-room recovery rehearsal.",
   "bin": {
     "workspace-recover": "bin/workspace-recover.mjs"
   },
   "scripts": {
+    "install": "node scripts/npm-install.cjs",
     "test": "node scripts/check.mjs",
     "check": "node scripts/check.mjs",
     "release:check": "node scripts/release-check.mjs --git"
@@ -32,17 +33,20 @@
   },
   "files": [
     "bin/",
-    "src/",
+    "src/workspace_recover/",
+    "pyproject.toml",
+    "setup.py",
     "scripts/",
     "schemas/",
     "templates/",
     "docs/",
     "skills/",
-    "tests/",
+    "tests/python/",
     "AGENTS.md",
     "README.md",
     "CHANGELOG.md",
-    "Прочти.Меня.md"
+    "Прочти.Меня.md",
+    "tests/requirements_migrations_test.py"
   ],
   "publishConfig": {
     "access": "public"

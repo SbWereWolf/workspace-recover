@@ -11,7 +11,7 @@
 В Git включаются все [DDL](schema-migrations/0001.sql), [DML](data/0001-initial-data.sql),
 парные `.rollback.sql`, [bootstrap](schema.sql), [зависимости](requirements.txt),
 примеры конфигурации, запускатель и проверки. Файлы ERP при работе не импортируются.
-Схема скопирована из bootstrap ERP и сверена с существовавшей схемой WR.
+Актуальная схема реестра определяется bootstrap и версионируемыми миграциями WR.
 
 Действующий manifest Poise для WR содержит явные абсолютные пути:
 
@@ -26,9 +26,8 @@
 [Пример](poise-paths.example.json) — фрагмент `paths`, не полный manifest.
 Полный manifest принадлежит установке Poise: произвольная копия не заменяет его
 проектную привязку. Текущий manifest:
-`/home/sbwerewolf/workdata/poise-op/app/projects/workspace-recover/project.json`.
-Прежний профиль `profile/workspace-recover/project.json` согласован с этими же
-пятью путями; архивные квитанции не переписываются.
+`/home/sbwerewolf/workdata/poise-project-data/.poise-installation/projects/workspace-recover/project.json`.
+Пять путей выбираются действующим manifest; сохранённые квитанции неизменяемы.
 
 ## Инструментарий и конфиги
 
@@ -41,8 +40,9 @@ cp docs/requirements/yoyo-schema.example.ini docs/requirements/yoyo-schema.ini
 cp docs/requirements/yoyo-data.example.ini docs/requirements/yoyo-data.ini
 ```
 
-`yoyo-migrations==9.0.0` — зависимость разработки/операторского инструментария;
-Node.js runtime по-прежнему использует только встроенные зависимости.
+`yoyo-migrations==9.0.0` — зависимость разработки/операторского инструментария.
+Runtime WR использует Python и выбранный `command-execution`; yoyo нужен только
+для обслуживания реестра и не устанавливается как его runtime-зависимость.
 Примеры INI находятся в Git, рабочие INI и окружение игнорируются. `%(here)s`
 разрешается относительно INI; пути чужого checkout в них не требуются.
 
@@ -91,12 +91,10 @@ DDL и обновление `schema.sql`. Все эти файлы включа�
 переключить действующие настройки и проверить чтение Poise; только после успеха
 удалять прежнюю БД. Claims, приёмка и история Task не меняются ради обхода gate.
 
-## История и проверка
+## Проверка миграций
 
-`0001-initial-data` сохраняет исходные два требования, связь, ревизию 1 и
-квитанцию записи. `0002-versioned-distribution` добавляет требования к npm и
-local-bare, ревизия 2. `0003-requirements-registry` фиксирует требования к
-собственному реестру/инструментарию, ревизия 3. Это не означает выпуска 1.0.1.
+Проверять полную цепочку DDL/DML на отдельной БД, включая исходные требования,
+зависимости и прямые/обратные операции. Проверка реестра не означает публикации пакета.
 
 ```bash
 mkdir -p .runtime/requirements-verification

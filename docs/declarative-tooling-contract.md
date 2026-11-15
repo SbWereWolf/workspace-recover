@@ -35,3 +35,12 @@ manifest; `info` читает сохранённые результаты, не 
 Skill учит использовать публичный declarative API, а не вручную воспроизводить
 скачивание, склейку, распаковку и применение изменений. Успех integrity-проверки,
 успех restore и результаты application tests — независимые факты.
+
+
+## Runtime поставки
+
+Исполнитель — Python с выбранным общим `command-execution`; Node обслуживает
+только npm install/bin. Требуемый Python выбирает оператор явно при установке.
+См. [README](../README.md#install). Это не меняет авторство manifest,
+порядок операций, документ v3 и различие generic flow/legacy backup. Фиксированный rehearsal
+выше относится к явной команде backup, не ко всем flow.
