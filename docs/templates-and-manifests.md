@@ -116,7 +116,7 @@ workspace-recover restore --manifest edited-recovery.json --target /work/new-tar
 Объявление неизвестного action/reporter или одинакового ID — ошибка до исполнения.
 `exec` — тот же массив аргументов без shell, не язык командной строки.
 
-`requires.formatVersion` допускает только `2`; `requires.features` проверяет
+`requires.formatVersion` допускает только `3`; `requires.features` проверяет
 возможности исполнителя. Другие версии форматов не читаются. Изменение исходного
 manifest не инвалидирует уже зафиксированный plan.
 
