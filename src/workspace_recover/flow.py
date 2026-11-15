@@ -2,10 +2,12 @@
 from copy import deepcopy
 from pathlib import Path
 import errno
+import math
 import os
 import shlex
 import shutil
 import socket
+import stat
 import tempfile
 import time
 import uuid
@@ -44,8 +46,10 @@ def validate_flow(flow):
         if "onError" in step and step["onError"] not in ("continue", "ask", "stop"): raise ValueError("Unknown onError behavior.")
         if "existingTarget" in step and step["existingTarget"] not in ("merge", "overwrite", "new-directory", "skip", "ask"): raise ValueError("Unknown existingTarget choice.")
         retry = step.get("retry")
-        if retry is not None and (not isinstance(retry, dict) or type(retry.get("maxAttempts")) is not int or retry["maxAttempts"] < 1 or not isinstance(retry.get("delayMs"), (int, float)) or retry["delayMs"] < 0):
-            raise ValueError("retry needs maxAttempts >= 1 and delayMs >= 0.")
+        if "retry" in step:
+            maximum = retry.get("maxAttempts") if isinstance(retry, dict) else None
+            if type(maximum) not in (int, float) or not math.isfinite(maximum) or maximum < 1 or maximum % 1 != 0 or not isinstance(retry.get("delayMs"), (int, float)) or retry["delayMs"] < 0:
+                raise ValueError("retry needs maxAttempts >= 1 and delayMs >= 0.")
     return flow
 
 
@@ -207,7 +211,10 @@ def merge_copy(src, target, *, move=False, replace=False):
         if exists(target): target.rename(str(target) + ".previous-" + uuid.uuid4().hex)
         if src.is_symlink(): target.symlink_to(os.readlink(src))
         else:
-            with target.open("xb") as out, src.open("rb") as stream: shutil.copyfileobj(stream, out)
+            with target.open("xb") as out, src.open("rb") as stream:
+                shutil.copyfileobj(stream, out)
+                out.flush()
+                os.fchmod(out.fileno(), stat.S_IMODE(os.fstat(stream.fileno()).st_mode))
         if move: src.unlink()
 
 
