@@ -94,7 +94,7 @@ def build_step_report(result, report, report_dir, workspace):
         medium = short + f"\ncommandExit={js_string(result.get('exitCode'))} durationMs={js_string(result.get('durationMs'))}\n" + ("\n".join(summary["failedCases"]) or "No failed cases reported")
     elif profile == "json-lines":
         full = preserve_source(workspace / report["source"], directory)
-        rows = [loads(line, "wr-json-v1") for line in full.read_text().splitlines() if line.strip()]
+        rows = [loads(line) for line in full.read_text().splitlines() if line.strip()]
         counts = {}
         for row in rows:
             key = js_string(row.get("level", row.get("status", "record")))
@@ -117,7 +117,7 @@ def build_step_report(result, report, report_dir, workspace):
         response = execute_invocation(invocation, {"mode": "foreground", "environment": "inherit", "session": "inherit", "stdout": {"kind": "bytes"}, "stderr": {"kind": "bytes"},
             "timeout": {"milliseconds": report.get("timeoutMs", 120000), "scope": "child", "firstSignal": "SIGKILL"}})
         if response["kind"] != "finished" or response["exit_code"] != 0: raise ValueError(f"custom reporter failed with exit {response['exit_code']}: {response.get('stderr', b'').decode('utf-8', errors='replace').strip()}")
-        data = loads(response["stdout"].decode("utf-8", errors="replace"), "wr-json-v1")
+        data = loads(response["stdout"].decode("utf-8", errors="replace"))
         if not isinstance(data.get("short"), str) or not isinstance(data.get("medium"), str): raise ValueError("custom reporter must emit JSON with string short and medium")
         short, medium = data["short"], data["medium"]
         if data.get("fullPath"): full = preserve_source(workspace / data["fullPath"], directory)

@@ -45,7 +45,7 @@ def main(argv):
         manifest = read_json(manifest_path, strip_bom=True) if manifest_path else None
         result = flow.run_flow(directory, manifest, manifest_path, options.get("workspace"), options.get("bridge"), limit)
     elif action == "status": result = flow.flow_status(directory)
-    elif action == "decide": result = flow.decide_flow(directory, options.get("request"), options.get("choice"), loads(options.get("params", "{}"), "wr-json-v1"), limit)
+    elif action == "decide": result = flow.decide_flow(directory, options.get("request"), options.get("choice"), loads(options.get("params", "{}")), limit)
     elif action == "presented": result = flow.record_presented(directory, options.get("request"))
     elif action == "host-plan": result = flow.host_plan(directory)
     elif action == "host-claim": result = flow.claim_host(directory)

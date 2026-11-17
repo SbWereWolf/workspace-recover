@@ -30,7 +30,7 @@ def load_values(files=(), sets=(), json_sets=()):
         if not isinstance(document.get("values"), dict):
             raise ValueError("values document requires an object values")
         layers.append(("values:" + str(Path(file).absolute()), document["values"]))
-    for items, source, decode in ((sets, "--set", parse_scalar), (json_sets, "--set-json", lambda text: loads(text, "wr-json-v1"))):
+    for items, source, decode in ((sets, "--set", parse_scalar), (json_sets, "--set-json", lambda text: loads(text))):
         for item in items:
             key, sep, text = item.partition("=")
             if not sep or not key:
