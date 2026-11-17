@@ -1,0 +1,30 @@
+{
+  "requirements": [
+    {
+      "id": "application-runtime",
+      "commands": [
+        {
+          "argv": [
+            "/bin/bash",
+            "-c",
+            "set -euo pipefail\n/bin/mkdir -p \"${task_root}/environment-maintenance/verification\"\nsession=$$(/usr/bin/mktemp -d \"${task_root}/environment-maintenance/verification/session-XXXXXX\")\nexec \"${node}\" \"${repository}/bin/workspace-recover.mjs\" flow run --manifest \"${profile_root}/flow.json\" --session \"$$session\""
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "PYTHONPATH": "${module_path}",
+            "LANG": "C.UTF-8"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "operation": "task_feedback",
+  "input": {
+    "action": "append",
+    "task_id": "T1",
+    "request_id": "feedback-note-1",
+    "items": [{"text": "  Исходная заметка\nс деталями.  ", "attachments": []}]
+  },
+  "messages": []
+}

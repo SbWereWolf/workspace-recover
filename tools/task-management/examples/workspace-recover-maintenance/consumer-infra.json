@@ -1,0 +1,57 @@
+{
+  "requirements": [
+    {
+      "id": "runtime-directory",
+      "commands": [
+        {
+          "argv": [
+            "/bin/mkdir",
+            "-p",
+            "${repository}/.runtime/environment-maintenance"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "PYTHONPATH": "${module_path}",
+            "LANG": "C.UTF-8"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "checks": {
+        "presence": {
+          "commands": [
+            {
+              "argv": [
+                "/usr/bin/test",
+                "-d",
+                "${repository}/.runtime/environment-maintenance"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "PYTHONPATH": "${module_path}",
+                "LANG": "C.UTF-8"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

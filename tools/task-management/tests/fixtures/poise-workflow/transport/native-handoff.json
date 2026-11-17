@@ -1,0 +1,30 @@
+{
+  "operation": "handoff",
+  "input": {
+    "request_id": "transport-handoff-1",
+    "task_id": "EXAMPLE-001",
+    "reason": "Передать результат назначенному проверяющему.",
+    "result": {
+      "sections": {
+        "report": "The current stage result is ready for independent inspection."
+      },
+      "artifact_paths": [],
+      "commit_message": "",
+      "content_additions": {
+        "sections": [],
+        "routes": [],
+        "requirements": []
+      },
+      "trace": {},
+      "method_additions": [],
+      "stage_work": {},
+      "evidence_work": {
+        "phase": "prepare",
+        "arguments": [],
+        "decisions": []
+      }
+    },
+    "artifacts": []
+  },
+  "messages": []
+}

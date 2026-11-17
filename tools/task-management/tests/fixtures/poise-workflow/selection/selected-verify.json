@@ -1,0 +1,35 @@
+{
+  "operation": "verify",
+  "input": {
+    "selection": {
+      "schema": "stage-result-selection-1",
+      "request_id": "selected-proof-1",
+      "expected": {
+        "task": "ERP-SELECTED-PROOF-001",
+        "stage": "implementation",
+        "iteration": 2,
+        "version": 17
+      },
+      "sections": {
+        "report": "Проверено сохранение байтов: строка α\nи вторая строка."
+      },
+      "metadata": {
+        "artifact_paths": ["existing/proof.json"],
+        "commit_message": "Record selected proof",
+        "content_additions": {"sections": [], "routes": [], "requirements": []},
+        "trace": {},
+        "method_additions": [],
+        "stage_work": {},
+        "evidence_work": {"phase": "prepare", "arguments": [], "decisions": []}
+      },
+      "files": [
+        {
+          "scope": "task",
+          "path": "proofs/input.bin",
+          "source": {"root": "worktree", "path": "var/selected-proof/input.bin"}
+        }
+      ]
+    }
+  },
+  "messages": []
+}

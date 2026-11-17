@@ -1,0 +1,9 @@
+{
+  "status": "handoff_blocked",
+  "phase": "verification",
+  "response_path": "saved-response.json",
+  "blocked": {
+    "reason": "The native verification owner requires action.",
+    "continuation": "Inspect the saved native result before retrying."
+  }
+}

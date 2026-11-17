@@ -1,0 +1,8 @@
+{
+  "runtime_python": "/absolute/path/to/task/runtime/bin/python",
+  "ce_wheel": "/srv/wheels/command_execution-2.0.0-py3-none-any.whl",
+  "consumer_wheel": "/srv/wheels/workspace_recover-1.1.1-py3-none-any.whl",
+  "ce_sha256": "<sha256 of selected CE wheel>",
+  "consumer_sha256": "<sha256 of selected consumer wheel>",
+  "selected_artifacts": "[[\"command-execution\", \"command_execution\", \"2.0.0\", \"/srv/wheels/command_execution-2.0.0-py3-none-any.whl\"], [\"workspace-recover\", \"workspace_recover\", \"1.1.1\", \"/srv/wheels/workspace_recover-1.1.1-py3-none-any.whl\"]]"
+}

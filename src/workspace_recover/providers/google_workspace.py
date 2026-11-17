@@ -11,8 +11,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
+from ..invocation import prepare_invocation
+from ..processes import execute_invocation
 from ..profiles import profile_name
 from ..util import home_dir, read_json, write_json, write_text, now_iso, sha256_file
 

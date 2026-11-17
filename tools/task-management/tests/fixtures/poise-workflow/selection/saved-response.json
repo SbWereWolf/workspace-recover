@@ -1,0 +1,17 @@
+{
+  "status": "verified",
+  "task": "ERP-SELECTED-PROOF-001",
+  "stage": "implementation",
+  "iteration": 2,
+  "attempt": 1,
+  "replayed": false,
+  "selection": {"schema": "stage-result-selection-1", "request_id": "selected-proof-1"},
+  "continuation": {
+    "kind": "advance",
+    "packet": {
+      "operation": "advance",
+      "input": {"task_id": "ERP-SELECTED-PROOF-001", "request_id": "selected-proof-1-advance"},
+      "messages": []
+    }
+  }
+}

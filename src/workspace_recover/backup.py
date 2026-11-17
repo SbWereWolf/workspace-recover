@@ -90,7 +90,7 @@ def run_backup_plan(store, session, plan):
         progress["inventory"] = {"path": file, "bytes": Path(file).stat().st_size, "sha256": sha256_file(file)}
         totals = inventory["totals"]
         short = f"{totals['files']} file(s), {totals['entries']} entries, {totals['bytes']} bytes"
-        from command_execution.documents import stringify
+        from .json_files import stringify
         store.set_info(session, "selection", short=short, medium=f"files={totals['files']}; entries={totals['entries']}; bytes={totals['bytes']}\ninclude={stringify(selection['patterns']['include'])}\nexclude={stringify(selection['patterns']['exclude'])}\nvisited={totals['visited']}; excludedRoots={totals['excludedRoots']}\nInventory: {file}", full_path=file)
         progress["archive"] = captured
         store.save(session)

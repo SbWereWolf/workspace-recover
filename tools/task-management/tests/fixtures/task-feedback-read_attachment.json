@@ -1,0 +1,5 @@
+{
+  "operation": "task_feedback",
+  "input": {"action": "read_attachment", "task_id": "T1", "attachment_id": "attachment-1"},
+  "messages": []
+}

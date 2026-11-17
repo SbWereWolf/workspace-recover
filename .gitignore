@@ -14,3 +14,4 @@
 *.egg-info/
 __pycache__/
 *.py[cod]
+/.tools/environment-maintenance/profile.local/

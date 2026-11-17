@@ -2,9 +2,9 @@
 from pathlib import Path
 import re
 import shutil
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
-from command_execution.documents import loads, stringify
+from .invocation import prepare_invocation
+from .processes import execute_invocation
+from .json_files import loads, stringify
 from command_execution.parameters import js_string
 from .util import write_json, write_text, read_json, file_record
 

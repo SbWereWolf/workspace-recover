@@ -1,0 +1,9 @@
+{
+  "schema_version": 3,
+  "backend": "poise",
+  "project_id": "erp",
+  "launcher": "../erp.sh",
+  "working_directory": "..",
+  "project_config": "../relocated-project.json",
+  "unknown_operator_option": {"keep": true}
+}

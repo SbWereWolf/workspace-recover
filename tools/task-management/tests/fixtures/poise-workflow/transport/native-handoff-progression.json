@@ -1,0 +1,9 @@
+{
+  "status": "handoff_blocked",
+  "phase": "progression",
+  "response_path": "saved-response.json",
+  "blocked": {
+    "reason": "The native progression owner requires action.",
+    "continuation": "Inspect the saved native result before retrying."
+  }
+}

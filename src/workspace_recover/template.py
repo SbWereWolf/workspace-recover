@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import re
-from command_execution.documents import loads
+from .json_files import loads
 from urllib.parse import urlparse
 from .formats import assert_format, schema
 from .util import deep_merge, get_path, set_path, parse_scalar, read_json, write_json, render, integer, home_dir, resource_path
@@ -78,7 +78,7 @@ def matches(definition, value):
     if kind == "url": return isinstance(value, str) and urlparse(value).scheme in ("http", "https", "file")
     if kind == "google-drive-folder": return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9_-]+|https://drive\.google\.com/drive/folders/[A-Za-z0-9_-]+(?:[/?#].*)?", value))
     if kind == "enum":
-        from command_execution.documents import stringify
+        from .json_files import stringify
         return any(stringify(value) == stringify(item) for item in definition.get("enum", []))
     return False
 

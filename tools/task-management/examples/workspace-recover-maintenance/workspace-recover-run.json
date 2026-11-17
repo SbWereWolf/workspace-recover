@@ -1,0 +1,40 @@
+{
+  "applications": [
+    {
+      "id": "application-runtime",
+      "commands": [
+        {
+          "argv": [
+            "${maintenance_python}",
+            "-I",
+            "-B",
+            "-m",
+            "environment_maintenance.running.console",
+            "--stdout-log",
+            "${console_log_directory}/application-runtime.stdout",
+            "--stderr-log",
+            "${console_log_directory}/application-runtime.stderr",
+            "--",
+            "${node}",
+            "${repository}/bin/workspace-recover.mjs",
+            "--help"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "PYTHONPATH": "${module_path}",
+            "LANG": "C.UTF-8"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

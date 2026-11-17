@@ -1,0 +1,21 @@
+{
+  "repository": "",
+  "profile_root": "",
+  "task_root": "",
+  "path": "",
+  "module_path": "",
+  "node": "",
+  "npm_entry_point": "",
+  "bootstrap_python": "",
+  "console_log_directory": "",
+  "maintenance_python": "/absolute/path/to/selected/environment-maintenance/.venv/bin/python",
+  "command_execution_wheel": "/srv/wheels/command_execution-2.0.0-py3-none-any.whl",
+  "command_execution_sha256": "<sha256 of selected immutable artifact>",
+  "command_execution_expected_version": "<selected version>",
+  "setuptools_wheel": "/srv/wheels/setuptools-84.2.1-py3-none-any.whl",
+  "wheel_wheel": "/srv/wheels/wheel-0.48.0-py3-none-any.whl",
+  "packaging_wheel": "/srv/wheels/packaging-26.3-py3-none-any.whl",
+  "jsonpatch_wheel": "/srv/wheels/jsonpatch-1.38-py3-none-any.whl",
+  "jsonpointer_wheel": "/srv/wheels/jsonpointer-3.6-py3-none-any.whl",
+  "runtime_python": ""
+}

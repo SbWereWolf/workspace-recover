@@ -3,9 +3,9 @@ import os
 from pathlib import Path
 import shutil
 import sys
-from command_execution.documents import stringify
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
+from .json_files import stringify
+from .invocation import prepare_invocation
+from .processes import execute_invocation
 from . import __version__
 from .util import read_json, write_json, home_dir, resource_path
 from .formats import assert_format

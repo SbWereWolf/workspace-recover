@@ -1,0 +1,122 @@
+{
+  "requirements": [
+    {
+      "id": "selected-candidate-runtime",
+      "commands": [
+        {
+          "argv": [
+            "${runtime_python}",
+            "-I",
+            "-B",
+            "-c",
+            "import hashlib,sys;from pathlib import Path;assert all(hashlib.sha256(Path(sys.argv[n]).read_bytes()).hexdigest()==sys.argv[n+1] for n in (1,3))",
+            "${ce_wheel}",
+            "${ce_sha256}",
+            "${consumer_wheel}",
+            "${consumer_sha256}"
+          ],
+          "cwd": ".",
+          "env": {
+            "PATH": "/usr/local/bin:/usr/bin:/bin",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "${runtime_python}",
+            "-I",
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--no-deps",
+            "--force-reinstall",
+            "${ce_wheel}",
+            "${consumer_wheel}"
+          ],
+          "cwd": ".",
+          "env": {
+            "PATH": "/usr/local/bin:/usr/bin:/bin",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "checks": {
+        "presence": {
+          "commands": [
+            {
+              "argv": [
+                "${runtime_python}",
+                "--version"
+              ],
+              "cwd": ".",
+              "env": {
+                "PATH": "/usr/local/bin:/usr/bin:/bin",
+                "LANG": "C.UTF-8",
+                "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+                "PIP_NO_CACHE_DIR": "1"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "availability": {
+          "commands": [
+            {
+              "argv": [
+                "${runtime_python}",
+                "-I",
+                "-B",
+                "-c",
+                "import importlib.metadata as m,importlib,sys,json,hashlib,zipfile;from pathlib import Path\nfor distribution,package,version,wheel in json.loads(sys.argv[1]):\n assert m.version(distribution)==version,(distribution,m.version(distribution),version)\n module=importlib.import_module(package);root=Path(module.__file__).parent\n with zipfile.ZipFile(wheel) as archive:\n  for name in archive.namelist():\n   if name.startswith(package+'/') and not name.endswith('/'):\n    actual=root/name[len(package)+1:]\n    assert actual.is_file() and actual.read_bytes()==archive.read(name),(str(actual),name)\n print(distribution,version,str(root))\n",
+                "${selected_artifacts}"
+              ],
+              "cwd": ".",
+              "env": {
+                "PATH": "/usr/local/bin:/usr/bin:/bin",
+                "LANG": "C.UTF-8",
+                "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+                "PIP_NO_CACHE_DIR": "1"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

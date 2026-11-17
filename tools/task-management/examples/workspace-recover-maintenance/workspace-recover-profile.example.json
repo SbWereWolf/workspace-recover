@@ -1,0 +1,128 @@
+{
+  "preserve_paths": [],
+  "asset_directories": [],
+  "text_documents": [],
+  "documents": [
+    {
+      "source": "consumer-app.json",
+      "destination": "app.json",
+      "edits": []
+    },
+    {
+      "source": "consumer-infra.json",
+      "destination": "infra.json",
+      "edits": []
+    },
+    {
+      "source": "consumer-parameters.json",
+      "destination": "parameters.json",
+      "edits": [
+        {
+          "path": [
+            "repository"
+          ],
+          "value": "${repository}"
+        },
+        {
+          "path": [
+            "profile_root"
+          ],
+          "value": "${profile_root}"
+        },
+        {
+          "path": [
+            "task_root"
+          ],
+          "value": "${task_root}"
+        },
+        {
+          "path": [
+            "path"
+          ],
+          "value": "${path}"
+        },
+        {
+          "path": [
+            "module_path"
+          ],
+          "value": "${module_path}"
+        },
+        {
+          "path": [
+            "node"
+          ],
+          "value": "${node}"
+        },
+        {
+          "path": [
+            "npm_entry_point"
+          ],
+          "value": "${npm_entry_point}"
+        },
+        {
+          "path": [
+            "bootstrap_python"
+          ],
+          "value": "${bootstrap_python}"
+        },
+        {
+          "path": [
+            "console_log_directory"
+          ],
+          "value": "${profile_root}"
+        },
+        {
+          "path": [
+            "maintenance_python"
+          ],
+          "value": "${sdk_python}"
+        },
+        {
+          "path": [
+            "runtime_python"
+          ],
+          "value": "${repository}/.venv/bin/python"
+        }
+      ]
+    },
+    {
+      "source": "workspace-recover-deps.json",
+      "destination": "deps.json",
+      "edits": []
+    },
+    {
+      "source": "workspace-recover-check.json",
+      "destination": "check.json",
+      "edits": []
+    },
+    {
+      "source": "workspace-recover-run.json",
+      "destination": "run.json",
+      "edits": []
+    },
+    {
+      "source": "workspace-recover-flow.json",
+      "destination": "flow.json",
+      "edits": [
+        {
+          "path": [
+            "workspace"
+          ],
+          "value": "${task_root}/environment-maintenance/verification/workspace"
+        },
+        {
+          "path": [
+            "steps",
+            0,
+            "argv"
+          ],
+          "value": [
+            "${node}",
+            "--check",
+            "${repository}/bin/workspace-recover.mjs"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "requirements": [
+    {
+      "id": "node-runtime",
+      "commands": [
+        {
+          "argv": [
+            "${node}",
+            "--check",
+            "${repository}/bin/workspace-recover.mjs"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "PYTHONPATH": "${module_path}",
+            "LANG": "C.UTF-8"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "checks": {
+        "presence": {
+          "commands": [
+            {
+              "argv": [
+                "${node}",
+                "--version"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "PYTHONPATH": "${module_path}",
+                "LANG": "C.UTF-8"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "availability": {
+          "commands": [
+            {
+              "argv": [
+                "${node}",
+                "--check",
+                "${repository}/bin/workspace-recover.mjs"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "PYTHONPATH": "${module_path}",
+                "LANG": "C.UTF-8"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "python-application-runtime",
+      "commands": [
+        {
+          "argv": [
+            "${bootstrap_python}",
+            "-I",
+            "-B",
+            "-c",
+            "import hashlib,sys;from pathlib import Path;assert hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()==sys.argv[2]",
+            "${command_execution_wheel}",
+            "${command_execution_sha256}"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "${bootstrap_python}",
+            "-m",
+            "venv",
+            "${repository}/.venv"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "${runtime_python}",
+            "-I",
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--no-deps",
+            "${setuptools_wheel}",
+            "${wheel_wheel}",
+            "${packaging_wheel}",
+            "${jsonpatch_wheel}",
+            "${jsonpointer_wheel}",
+            "${command_execution_wheel}"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "argv": [
+            "${runtime_python}",
+            "-I",
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--no-build-isolation",
+            "${repository}"
+          ],
+          "cwd": "${repository}",
+          "env": {
+            "PATH": "${path}",
+            "LANG": "C.UTF-8",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_CACHE_DIR": "1"
+          },
+          "interpreter": {
+            "name": "exit",
+            "options": {
+              "accept": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "checks": {
+        "presence": {
+          "commands": [
+            {
+              "argv": [
+                "${runtime_python}",
+                "-I",
+                "-B",
+                "-c",
+                "import importlib.metadata as m,sys,tomllib,zipfile,hashlib\nfrom pathlib import Path\nexpected=tomllib.loads((Path(sys.argv[1])/\"pyproject.toml\").read_text())[\"project\"][\"version\"]\nassert m.version(\"workspace-recover\")==expected\nassert m.version(\"command-execution\")==sys.argv[2]\nimport command_execution,workspace_recover\nroot=Path(command_execution.__file__).parent\nwith zipfile.ZipFile(sys.argv[3]) as archive:\n for name in archive.namelist():\n  if name.startswith(\"command_execution/\") and name.endswith(\".py\"):\n   assert (root/name.removeprefix(\"command_execution/\")).read_bytes()==archive.read(name)\nprint(\"Installed WR runtime and exact configured core artifact verified\")\n",
+                "${repository}",
+                "${command_execution_expected_version}",
+                "${command_execution_wheel}"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "LANG": "C.UTF-8",
+                "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+                "PIP_NO_CACHE_DIR": "1"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "availability": {
+          "commands": [
+            {
+              "argv": [
+                "${runtime_python}",
+                "-I",
+                "-B",
+                "-c",
+                "import importlib.metadata as m,sys,tomllib,zipfile,hashlib\nfrom pathlib import Path\nexpected=tomllib.loads((Path(sys.argv[1])/\"pyproject.toml\").read_text())[\"project\"][\"version\"]\nassert m.version(\"workspace-recover\")==expected\nassert m.version(\"command-execution\")==sys.argv[2]\nimport command_execution,workspace_recover\nroot=Path(command_execution.__file__).parent\nwith zipfile.ZipFile(sys.argv[3]) as archive:\n for name in archive.namelist():\n  if name.startswith(\"command_execution/\") and name.endswith(\".py\"):\n   assert (root/name.removeprefix(\"command_execution/\")).read_bytes()==archive.read(name)\nprint(\"Installed WR runtime and exact configured core artifact verified\")\n",
+                "${repository}",
+                "${command_execution_expected_version}",
+                "${command_execution_wheel}"
+              ],
+              "cwd": "${repository}",
+              "env": {
+                "PATH": "${path}",
+                "LANG": "C.UTF-8",
+                "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+                "PIP_NO_CACHE_DIR": "1"
+              },
+              "interpreter": {
+                "name": "exit",
+                "options": {
+                  "accept": [
+                    0
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

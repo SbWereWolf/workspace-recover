@@ -1,0 +1,9 @@
+[
+  {"kind": "unsupported-capability", "exit": 2, "stdout": "", "stderr": "native: unsupported selection\n"},
+  {"kind": "stale-state", "exit": 1, "stdout": "", "stderr": "native: stale expected state\n"},
+  {"kind": "missing-section", "exit": 1, "stdout": "", "stderr": "native: required report absent\n"},
+  {"kind": "invalid-section", "exit": 1, "stdout": "", "stderr": "native: undeclared section\n"},
+  {"kind": "missing-file", "exit": 1, "stdout": "", "stderr": "native: source missing\n"},
+  {"kind": "foreign-file", "exit": 1, "stdout": "", "stderr": "native: source escapes owner\n"},
+  {"kind": "changed-file", "exit": 1, "stdout": "", "stderr": "native: selected source changed\n"}
+]

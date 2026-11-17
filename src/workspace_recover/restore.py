@@ -2,7 +2,7 @@
 from pathlib import Path
 import os
 import re
-from command_execution.documents import stringify
+from .json_files import stringify
 from .formats import schema, assert_format, assert_requirements, assert_transport
 from .selection import assert_inventory
 from .archive import assemble_parts

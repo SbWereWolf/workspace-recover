@@ -1,6 +1,6 @@
 """Public flow CLI projection, separate from business acceptance."""
 from pathlib import Path
-from command_execution.documents import stringify, loads
+from .json_files import stringify, loads
 from . import flow
 from .util import read_json
 from .session_output import select_session

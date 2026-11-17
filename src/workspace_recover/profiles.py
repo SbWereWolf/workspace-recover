@@ -1,5 +1,5 @@
 """Caller-owned local profile declarations."""
-from command_execution.documents import create_json
+from .json_files import create_json
 from pathlib import Path
 import re
 from .formats import schema, assert_format

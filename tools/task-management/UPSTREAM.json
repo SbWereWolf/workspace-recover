@@ -1,0 +1,18 @@
+{
+  "source_package": "task-management",
+  "source_version": "4.0.0",
+  "local_version": "4.1.0.dev1",
+  "distribution": "Local source deployment only; no registry publication or overwrite of upstream4.0.0",
+  "source_files_sha256": {
+    "cli.sh": "f86173ed0b8c986bcc808e45e6b578b9f91b81cb49a59daa57f672b26c8dce36",
+    "task-ctl": "27f6bb2be9a0dec682a848df495b6046daccb446802e43274e5067d06b679ec0",
+    "sprint-ctl": "dc9194cfe17d5c9d6cb8941a6f0ac5c9dee2101e88fcc9636504442282bf3516",
+    "req-ctl": "3e53357434aee14932ae4afe2b8eb96ead53d981bb6b21b8caa06eec2ea947ae",
+    "exec-ctl": "92332a3739df67e7bd073c0ce0bd74a557ad96b33c95ccbcbe49de7400c03a1a",
+    "src/task_management/workflow_proxy.py": "9a4f9c8e62a747b317ddeeebd56bbebda22acb948bf5faa615c191552960cade",
+    "pyproject.toml": "530be95d6ac9549990c1b14b11e61cbfa1a8560e78fac6dd7a074383ca8f0734",
+    "tests/test_workflow_proxy.py": "c3aabc510e832875288ac647d6ae917d2f8894122255765cae984827630d216a",
+    "tests/test_relative_configuration.py": "7a18a6f7390cdc0a22e2b473899cc33e1cf2c26c149b0032ef8b05048b0f57d1"
+  },
+  "adaptation": "Project identity and selected backend paths from config; existing caller/argv/stdio/status contracts retained."
+}

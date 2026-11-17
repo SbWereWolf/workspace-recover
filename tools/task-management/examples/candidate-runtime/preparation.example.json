@@ -1,0 +1,86 @@
+{
+  "catalog_dir": "${task_root}/candidate-runtime",
+  "commands": {
+    "prepare": [
+      "/usr/bin/env",
+      "PATH=/usr/local/bin:/usr/bin:/bin",
+      "${operator_start_app}",
+      "deps",
+      "--config",
+      "${profile_root}/app.json",
+      "--parameters",
+      "${profile_root}/parameters.json",
+      "--base-dir",
+      "${profile_root}",
+      "--requirements",
+      "all"
+    ],
+    "check": [
+      "/usr/bin/env",
+      "PATH=/usr/local/bin:/usr/bin:/bin",
+      "${operator_start_app}",
+      "check",
+      "--config",
+      "${profile_root}/app.json",
+      "--parameters",
+      "${profile_root}/parameters.json",
+      "--base-dir",
+      "${profile_root}"
+    ],
+    "verify": [
+      "/usr/bin/env",
+      "PATH=/usr/local/bin:/usr/bin:/bin",
+      "${operator_start_app}",
+      "check",
+      "--config",
+      "${profile_root}/app.json",
+      "--parameters",
+      "${profile_root}/parameters.json",
+      "--base-dir",
+      "${profile_root}"
+    ],
+    "repair": [
+      "/usr/bin/env",
+      "PATH=/usr/local/bin:/usr/bin:/bin",
+      "${operator_start_app}",
+      "deps",
+      "--config",
+      "${profile_root}/app.json",
+      "--parameters",
+      "${profile_root}/parameters.json",
+      "--base-dir",
+      "${profile_root}",
+      "--requirements",
+      "all"
+    ]
+  },
+  "handler": {
+    "callable": "apps.bootstrap.environment_result:handle",
+    "options": {
+      "failure_exit_code": 4,
+      "repair_command": "prepare",
+      "repair_operations": [],
+      "repairable_statuses": [
+        "failed"
+      ],
+      "schema": null,
+      "status_exit_codes": {
+        "failed": 1,
+        "succeeded": 0
+      },
+      "success_statuses": [
+        "succeeded"
+      ],
+      "verification_command": "verify"
+    }
+  },
+  "inputs": [],
+  "operations": [
+    "prepare",
+    "check"
+  ],
+  "parameters": {
+    "operator_start_app": "/absolute/path/to/installed/start-app",
+    "profile_root": "/absolute/path/to/working/candidate-runtime"
+  }
+}

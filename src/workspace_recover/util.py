@@ -1,4 +1,4 @@
-"""WR paths/identities; generic persistence and parameters are owned by CE."""
+"""WR paths, identities and persistence; pure data transformations use CE."""
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
@@ -7,7 +7,8 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-from command_execution import documents
+from . import json_files
+from command_execution import JSONMerger, JSONPathEditor
 from command_execution.parameters import render, lookup, js_string
 
 APP_NAME = "workspace-recover"
@@ -34,16 +35,16 @@ def exists(path):
 
 
 def read_json(path, *, strip_bom=False):
-    return documents.read_json(path, "wr-json-v1", strip_bom=strip_bom)
+    return json_files.read_json(path, "wr-json-v1", strip_bom=strip_bom)
 
 
 def write_json(path, value, mode=0o600):
-    documents.write_json(path, value, profile="wr-json-v1", new_file_mode=mode)
+    json_files.write_json(path, value, profile="wr-json-v1", new_file_mode=mode)
     return str(path)
 
 
 def write_text(path, value, mode=0o600):
-    documents.write_text(path, value, new_file_mode=mode)
+    json_files.write_text(path, value, new_file_mode=mode)
     return str(path)
 
 
@@ -60,7 +61,7 @@ def sha256_text(value):
 
 
 def canonical(value):
-    return documents.stringify(value, canonical=True)
+    return json_files.stringify(value, canonical=True)
 
 
 def safe_key(key):
@@ -78,22 +79,19 @@ def get_path(value, key, default=None):
 
 def set_path(value, key, selected):
     safe_key(key)
-    parts = key.split(".")
-    for part in parts[:-1]:
-        if part in value and not isinstance(value[part], dict):
-            raise ValueError(f"value path conflicts at {part}")
-        value = value.setdefault(part, {})
-    value[parts[-1]] = selected
+    changed = JSONPathEditor().set(value, key, selected, profile='dotted')
+    value.clear()
+    value.update(changed)
 
 
 def deep_merge(base, overlay):
-    if not isinstance(base, dict) or not isinstance(overlay, dict):
-        return deepcopy(overlay)
-    result = deepcopy(base)
-    for key, value in overlay.items():
-        safe_key(key)
-        result[key] = deep_merge(result[key], value) if key in result else deepcopy(value)
-    return result
+    def validate(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                safe_key(key)
+                validate(child)
+    validate(overlay)
+    return JSONMerger().merge(base, overlay)
 
 
 def parse_scalar(value):

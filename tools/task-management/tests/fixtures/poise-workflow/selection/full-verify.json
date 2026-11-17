@@ -1,0 +1,17 @@
+{
+  "operation": "verify",
+  "input": {
+    "result": {
+      "sections": {"report": "Содержательный результат полной формы."},
+      "artifact_paths": [],
+      "commit_message": "Record full proof",
+      "content_additions": {"sections": [], "routes": [], "requirements": []},
+      "trace": {},
+      "method_additions": [],
+      "stage_work": {},
+      "evidence_work": {"phase": "prepare", "arguments": [], "decisions": []}
+    },
+    "artifacts": []
+  },
+  "messages": []
+}

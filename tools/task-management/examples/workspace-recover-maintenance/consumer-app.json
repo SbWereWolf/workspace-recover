@@ -1,0 +1,14 @@
+{
+  "operations": {
+    "infra": "infra.json",
+    "deps": "deps.json",
+    "check": "check.json",
+    "run": "run.json"
+  },
+  "interpreters": {
+    "exit": {
+      "module": "poise_environment.result_interpreters",
+      "attribute": "exit_result"
+    }
+  }
+}

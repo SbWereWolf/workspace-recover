@@ -4,11 +4,11 @@ import os
 import re
 import time
 import uuid
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
+from .invocation import prepare_invocation
+from .processes import execute_invocation
 from .formats import schema, assert_format
 from .util import canonical, sha256_text, read_json, now_iso, exists
-from command_execution.documents import stringify
+from .json_files import stringify
 
 OPERATIONS = {"drive.upload", "drive.download", "drive.metadata", "gmail.send", "gmail.read"}
 

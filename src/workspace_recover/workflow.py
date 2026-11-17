@@ -1,8 +1,8 @@
 """Legacy ordered workflow and advisory policy; CE executes each command."""
 from pathlib import Path
 import re
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
+from .invocation import prepare_invocation
+from .processes import execute_invocation
 from command_execution.parameters import render
 from .reporting import validate_reporter, build_step_report, build_aggregate_report
 from .util import now_iso, write_json

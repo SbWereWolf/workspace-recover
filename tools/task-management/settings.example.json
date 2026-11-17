@@ -1,0 +1,16 @@
+{
+  "schema_version": 3,
+  "backend": "poise",
+  "project_id": "example-project",
+  "launcher": "poise-launcher.sh",
+  "working_directory": "../../../poise/app",
+  "project_config": "../../../poise-data/example-project/project.json",
+  "backend_root": "../../../poise/app",
+  "backend_python": "../../../poise/app/tools/.venv/bin/python",
+  "backend_python_identity": "CPython 3.15.0",
+  "backend_module_paths": [
+    "../../../poise/app/src",
+    "../../../poise/app/.runtime/dependencies",
+    "../../../poise/app"
+  ]
+}

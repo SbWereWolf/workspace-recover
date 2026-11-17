@@ -1,0 +1,9 @@
+{
+  "default_provider": "/absolute/path/to/project/default-preparation.json",
+  "routes": [
+    {
+      "task_root": "/absolute/path/to/project/standalone/TASK-ID",
+      "provider": "/absolute/path/to/task/candidate-preparation.json"
+    }
+  ]
+}

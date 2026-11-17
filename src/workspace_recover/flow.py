@@ -11,8 +11,8 @@ import stat
 import tempfile
 import time
 import uuid
-from command_execution.commands import prepare_invocation
-from command_execution.processes import execute_invocation
+from .invocation import prepare_invocation
+from .processes import execute_invocation
 from .util import read_json, write_json, write_text, now_iso, session_id, canonical, sha256_text, sha256_file, file_record, exists, render
 from .bridge import ConnectorBridge, ConnectorBoundary, exclusive_json, submit_results, effective_response
 
