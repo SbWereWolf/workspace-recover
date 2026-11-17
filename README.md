@@ -16,10 +16,11 @@ Run in Ubuntu or Ubuntu under WSL. You need Node.js 20+ and Python 3.11+ with
 
 ```bash
 export WORKSPACE_RECOVER_PYTHON=/usr/bin/python3.12
-npm install --global workspace-recover@1.0.1
+npm install --global "workspace-recover@${WR_VERSION:?Select an available release}"
 workspace-recover --version
 ```
 
+Set `WR_VERSION` to the available release selected for your installation.
 Choose your installed Python executable explicitly. npm prepares WR's private
 Python environment; dependencies must be available during installation.
 For installation errors, see the [troubleshooting guide](https://github.com/SbWereWolf/workspace-recover/blob/main/docs/troubleshooting.md).
