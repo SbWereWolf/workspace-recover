@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workspace-recover"
-version = "1.1.1"
+version = "1.1.4"
 description = "Declarative workspace backup and recovery"
 requires-python = ">=3.11"
-dependencies = ["command-execution==2.0.0"]
+dependencies = ["command-execution==2.0.3"]
 
 [project.scripts]
 workspace-recover = "workspace_recover.cli:entrypoint"
