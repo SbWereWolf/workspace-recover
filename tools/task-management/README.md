@@ -10,6 +10,10 @@ installation. Both working files are ignored by Git. All paths inside the JSON
 are relative to that JSON file; interpreter paths in `.env` are relative to this
 directory. A relative `--config` selector is also relative to this directory.
 The configured project ID must match the manifest's `project` value.
+The registered manifest also needs an explicit permanent `paths.task_materials`
+directory for task feedback and attachments. Merge the fragment in
+`examples/project-paths.example.json` into that manifest with your project-owned
+path; keep the operational manifest outside Git.
 `backend_module_paths` explicitly lists the selected source and serviced
 dependency directories, starting with `backend_root/src`. Existing dependency
 locations are selected here; the transport does not install packages or use a
