@@ -27,7 +27,15 @@ exec 10<> "$attempt/reply"
 setsid --fork --wait bash "$directory/wr-supervise.bash" "$attempt" detached \
     </dev/null >"$attempt/controller.stdout" 2>"$attempt/controller.stderr" 10>&10 &
 wrapper=$!
-while ! IFS= read -r -t 0.05 reply <&10; do
+reply=
+while true; do
+    fragment=
+    if IFS= read -r -t 0.05 fragment <&10; then
+        reply+=$fragment
+        break
+    fi
+    # A timed-out read can consume part of the line. Keep it for the next slice.
+    reply+=$fragment
     if ! kill -0 "$wrapper" 2>/dev/null; then
         wait "$wrapper" || true
         printf '%s\n' '{"kind":"completion_unknown","complete":false}'
