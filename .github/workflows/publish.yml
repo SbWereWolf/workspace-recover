@@ -111,6 +111,7 @@ jobs:
     needs: pypi
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     environment: npm
     permissions:
       contents: read
@@ -136,20 +137,28 @@ jobs:
           test "${#archive[@]}" -eq 1
           package=$(tar -xOf "${archive[0]}" package/package.json | jq -er '.name + "@" + .version')
           expected="sha512-$(openssl dgst -sha512 -binary "${archive[0]}" | openssl base64 -A)"
-          actual=$(npm view "$package" dist.integrity 2>registry-error.log) || {
-            if ! grep -q 'code E404' registry-error.log; then
+          read_integrity() {
+            local integrity
+            if integrity=$(npm view "$package" dist.integrity --prefer-online 2>registry-error.log); then
+              printf '%s' "$integrity"
+            elif ! grep -q 'code E404' registry-error.log; then
               cat registry-error.log >&2
-              exit 1
+              return 1
             fi
-            actual=''
           }
+          actual=$(read_integrity)
           if [[ -z "$actual" ]]; then
             npm publish "${archive[0]}" --access public
           fi
-          for attempt in {1..12}; do
-            actual=$(npm view "$package" dist.integrity) || actual=''
-            [[ -n "$actual" ]] && break
-            sleep 5
+          deadline=$((SECONDS + 25 * 60))
+          while [[ -z "$actual" ]]; do
+            if (( SECONDS >= deadline )); then
+              printf 'npm did not make %s public within 25 minutes.\n' "$package" >&2
+              exit 1
+            fi
+            printf 'Waiting for npm to make %s public\n' "$package"
+            sleep 30
+            actual=$(read_integrity)
           done
           [[ "$actual" == "$expected" ]]
           export WORKSPACE_RECOVER_PYTHON
