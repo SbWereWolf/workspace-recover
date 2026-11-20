@@ -405,9 +405,9 @@ class LegacyBackupContracts(CliContract):
 
     def test_advisory_verification_keeps_raw_report_after_rehearsal(self):
         workflow = [{"id": "advisory", "type": "verification",
-                     "argv": ["/usr/bin/python3.12", "-I", "-c", "raise SystemExit(7)"]},
+                     "argv": [sys.executable, "-I", "-c", "raise SystemExit(7)"]},
                     {"id": "after", "type": "command",
-                     "argv": ["/usr/bin/python3.12", "-I", "-c", "print('after advisory')"]}]
+                     "argv": [sys.executable, "-I", "-c", "print('after advisory')"]}]
         identifier, session = self.backup(workflow)
         self.assertEqual(session["state"], "completed_with_warnings")
         self.assertEqual(session["result"]["verification"], "warnings")
