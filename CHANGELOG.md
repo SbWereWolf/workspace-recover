@@ -1,5 +1,9 @@
 # Package reference
 
+## 1.1.11 — automatic release verification
+
+- Exercise the tag-triggered PyPI and npm publishing workflow with both trusted publishers configured.
+
 ## 1.1.10 — release automation
 
 - Use the selected Python interpreter for backup rehearsal contract tests.
