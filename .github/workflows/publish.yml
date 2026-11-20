@@ -132,7 +132,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          archive=(release/*.tgz)
+          archive=(./release/*.tgz)
           test "${#archive[@]}" -eq 1
           package=$(tar -xOf "${archive[0]}" package/package.json | jq -er '.name + "@" + .version')
           expected="sha512-$(openssl dgst -sha512 -binary "${archive[0]}" | openssl base64 -A)"
