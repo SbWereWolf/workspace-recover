@@ -1,5 +1,11 @@
 # Package reference
 
+## 1.1.10 — release automation
+
+- Use the selected Python interpreter for backup rehearsal contract tests.
+- Verify that the release tag belongs to `main` and allow GitHub Actions to retry an existing annotated tag.
+- Compare an existing PyPI wheel with the built artifact and wait for npm validation before verifying and installing the published package.
+
 ## 1.1.9 — requirements and entry points
 
 - Ubuntu/WSL; Python 3.12+ with venv/pip and Node.js 20+ for npm installation.
