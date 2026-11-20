@@ -11,7 +11,7 @@ what happened and continue after a requested decision or host action.
 
 ## Install
 
-Run in Ubuntu or Ubuntu under WSL. You need Node.js 20+ and Python 3.11+ with
+Run in Ubuntu or Ubuntu under WSL. You need Node.js 20+ and Python 3.12+ with
 `venv` and `pip`:
 
 ```bash

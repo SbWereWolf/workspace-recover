@@ -48,11 +48,31 @@ PyPI/npm. Обычный release-check проверяет материалы п�
 
 ## npm и версии
 
-npm устанавливает опубликованные registry artifacts. GitHub служит источником
-версий; tag без успешного publish и readback не является npm-выпуском. Автоматизация
-релиза должна связывать точный принятый source/tag, сборку и проверку package,
-публикацию и фактическое чтение registry. Потребитель выбирает npm-версию, не
-готовит и не загружает отдельные архивы вручную.
+GitHub Actions выпускает Python wheel и npm-пакет по аннотированному тегу
+`vMAJOR.MINOR.PATCH`. Версия тега совпадает с метаданными npm и Python.
+В PyPI и npm должны существовать проекты `workspace-recover`. Настройте для них
+Trusted Publishers для `publish.yml` с окружениями GitHub `pypi` и `npm`
+соответственно. До выпуска WR опубликуйте закреплённую версию CE в PyPI.
+
+Из `main` с принятым коммитом отправьте `main` и тег одной операцией.
+
+```bash
+tag="v${VERSION:?Укажите версию выпуска}"
+commit="${APPROVED_COMMIT:?Укажите принятый коммит}"
+test "$(git symbolic-ref --short HEAD)" = main &&
+test "$(git rev-parse HEAD)" = "$commit" &&
+git tag -a "$tag" "$commit" -m "Release $tag" &&
+git push --atomic origin "$commit:refs/heads/main" "refs/tags/$tag:refs/tags/$tag"
+npm view "workspace-recover@$VERSION" version dist.integrity
+```
+
+Workflow проверяет кандидат и сверяет хэш wheel в PyPI и целостность npm-пакета.
+
+Потребители обновляются только из реестра npm. Закрепите опубликованную
+версию командой `npm install --save-exact "workspace-recover@$VERSION"`,
+сохраните манифест и lock-файл вместе и восстанавливайте установку через
+`npm ci`. npm-установщик получает CE из PyPI. Архивы и исходники служат
+входами для разработки и изолированных испытаний кандидата.
 
 SemVer описывает совместимость CLI/manifest/runtime. При обновлении необходимо
 явно учитывать новые prerequisites и выбранную точную зависимость CE. Окружение должно содержать указанный Python и доступную точную зависимость CE.

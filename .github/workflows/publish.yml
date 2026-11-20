@@ -1,0 +1,133 @@
+name: Publish workspace-recover
+on:
+  push:
+    tags: ['v[0-9]*']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check tagged source
+        if: github.ref_type == 'tag'
+        run: node scripts/release-check.mjs --git
+      - name: Build both distributions
+        env:
+          RELEASE_REF: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: scripts/build-release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: dist/
+          if-no-files-found: error
+  pypi:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Require an existing PyPI project
+        run: curl --fail --silent --show-error --retry 2 https://pypi.org/pypi/workspace-recover/json > /dev/null
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release/
+      - run: |
+          mkdir dist
+          mv release/*.whl dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+      - name: Verify published wheel
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          import hashlib, json, time, urllib.error, urllib.request
+
+          wheel, = Path("dist").glob("*.whl")
+          package, version, *_ = wheel.name.split("-")
+          expected = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          url = f"https://pypi.org/pypi/{package.replace('_', '-')}/{version}/json"
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(url, timeout=15) as response:
+                      files = json.load(response)["urls"]
+              except urllib.error.HTTPError as error:
+                  if error.code != 404:
+                      raise
+                  files = []
+              actual = next((f["digests"]["sha256"] for f in files if f["filename"] == wheel.name), None)
+              if actual is not None:
+                  if actual != expected:
+                      raise SystemExit("Published wheel does not match the built artifact")
+                  break
+              time.sleep(5)
+          else:
+              raise SystemExit("Published wheel is unavailable")
+          PYTHON
+  npm:
+    needs: pypi
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release/
+      - run: npm install --global npm@11.21.3
+      - name: Publish and verify npm artifact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archive=(release/*.tgz)
+          test "${#archive[@]}" -eq 1
+          package=$(tar -xOf "${archive[0]}" package/package.json | jq -er '.name + "@" + .version')
+          expected="sha512-$(openssl dgst -sha512 -binary "${archive[0]}" | openssl base64 -A)"
+          actual=$(npm view "$package" dist.integrity 2>registry-error.log) || {
+            if ! grep -q 'code E404' registry-error.log; then
+              cat registry-error.log >&2
+              exit 1
+            fi
+            actual=''
+          }
+          if [[ -z "$actual" ]]; then
+            npm publish "${archive[0]}" --access public
+          fi
+          for attempt in {1..12}; do
+            actual=$(npm view "$package" dist.integrity) || actual=''
+            [[ -n "$actual" ]] && break
+            sleep 5
+          done
+          [[ "$actual" == "$expected" ]]
+          export WORKSPACE_RECOVER_PYTHON
+          WORKSPACE_RECOVER_PYTHON=$(command -v python3)
+          npm install --prefix "$RUNNER_TEMP/wr-consumer" --no-audit --no-fund "$package"
+          cd "$RUNNER_TEMP"
+          test "$(wr-consumer/node_modules/.bin/workspace-recover --version)" = "${package#*@}"
